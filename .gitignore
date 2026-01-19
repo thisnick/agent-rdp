@@ -5,7 +5,11 @@
 
 # Build artifacts
 /target/
+/dist/
 Cargo.lock
+
+# Node.js
+node_modules/
 
 # IDE
 .idea/

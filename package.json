@@ -7,17 +7,30 @@
     "url": "git+https://github.com/anthropics/agent-rdp.git"
   },
   "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "bin": {
     "agent-rdp": "./bin/agent-rdp"
   },
   "files": [
     "bin",
-    "scripts"
+    "scripts",
+    "dist"
   ],
   "scripts": {
-    "postinstall": "node scripts/postinstall.js",
+    "postinstall": "node scripts/postinstall.cjs",
+    "build:ts": "tsc",
     "build:native": "cargo build --release && node scripts/copy-native.js",
-    "build:macos": "(cargo build --release --target aarch64-apple-darwin & cargo build --release --target x86_64-apple-darwin & wait) && cp target/aarch64-apple-darwin/release/agent-rdp bin/agent-rdp-darwin-arm64 && cp target/x86_64-apple-darwin/release/agent-rdp bin/agent-rdp-darwin-x64"
+    "build:macos": "(cargo build --release --target aarch64-apple-darwin & cargo build --release --target x86_64-apple-darwin & wait) && cp target/aarch64-apple-darwin/release/agent-rdp bin/agent-rdp-darwin-arm64 && cp target/x86_64-apple-darwin/release/agent-rdp bin/agent-rdp-darwin-x64",
+    "prepublishOnly": "npm run build:ts",
+    "example": "tsx examples/hello-world.ts"
   },
   "keywords": [
     "rdp",
@@ -30,5 +43,10 @@
   "bugs": {
     "url": "https://github.com/anthropics/agent-rdp/issues"
   },
-  "homepage": "https://github.com/anthropics/agent-rdp#readme"
+  "homepage": "https://github.com/anthropics/agent-rdp#readme",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  }
 }
