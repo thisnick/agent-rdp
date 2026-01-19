@@ -7,14 +7,30 @@ pub mod daemon;
 pub mod handlers;
 pub mod ipc_server;
 pub mod rdp_session;
+pub mod rdpdr_backend;
 
 pub use daemon::Daemon;
 pub use ipc_server::IpcServer;
 pub use rdp_session::RdpSession;
 
+/// Get the base directory for all agent-rdp sessions.
+pub fn get_base_dir() -> std::path::PathBuf {
+    #[cfg(unix)]
+    {
+        std::path::PathBuf::from("/tmp/agent-rdp")
+    }
+    #[cfg(windows)]
+    {
+        let temp = std::env::var("TEMP")
+            .or_else(|_| std::env::var("TMP"))
+            .unwrap_or_else(|_| "C:\\Windows\\Temp".to_string());
+        std::path::PathBuf::from(format!("{}\\agent-rdp", temp))
+    }
+}
+
 /// Get the session directory path.
 pub fn get_session_dir(session: &str) -> std::path::PathBuf {
-    std::path::PathBuf::from(format!("/tmp/agent-rdp/{}", session))
+    get_base_dir().join(session)
 }
 
 /// Get the socket path for a session.

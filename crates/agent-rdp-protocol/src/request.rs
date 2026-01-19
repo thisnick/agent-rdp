@@ -211,32 +211,10 @@ pub enum ScrollDirection {
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum ClipboardRequest {
     /// Get clipboard text content.
-    GetText,
+    Get,
 
     /// Set clipboard text content.
-    SetText { text: String },
-
-    /// Get file from clipboard.
-    GetFile,
-
-    /// Set file to clipboard.
-    SetFile(SetFileSource),
-}
-
-/// Source for setting a file to clipboard.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "source", rename_all = "snake_case")]
-pub enum SetFileSource {
-    /// File path - daemon reads on-demand when server requests.
-    Path { path: String },
-
-    /// In-memory data (from stdin) - base64 encoded.
-    Data {
-        /// File name to use on clipboard.
-        name: String,
-        /// Base64-encoded file data.
-        data: String,
-    },
+    Set { text: String },
 }
 
 /// Drive mapping operation request.

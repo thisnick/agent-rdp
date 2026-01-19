@@ -57,13 +57,6 @@ impl Output {
             ResponseData::Clipboard { text } => {
                 println!("{}", text);
             }
-            ResponseData::ClipboardFile { name, size, data } => {
-                println!("File: {} ({} bytes)", name, size);
-                println!("Base64 data: {} chars", data.len());
-            }
-            ResponseData::ClipboardFileSaved { name, size, path } => {
-                println!("Saved {} ({} bytes) to {}", name, size, path);
-            }
             ResponseData::SessionInfo(info) => {
                 println!("Session: {}", info.name);
                 println!("State: {:?}", info.state);

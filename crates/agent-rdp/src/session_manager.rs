@@ -232,7 +232,7 @@ impl SessionManager {
 
     /// List all active sessions.
     pub fn list_sessions() -> Vec<String> {
-        let base_dir = std::path::PathBuf::from("/tmp/agent-rdp");
+        let base_dir = agent_rdp_daemon::get_base_dir();
         let mut sessions = Vec::new();
 
         if let Ok(entries) = std::fs::read_dir(&base_dir) {

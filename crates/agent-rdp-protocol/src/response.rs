@@ -85,26 +85,6 @@ pub enum ResponseData {
         text: String,
     },
 
-    /// Clipboard file content.
-    ClipboardFile {
-        /// File name.
-        name: String,
-        /// File size in bytes.
-        size: u64,
-        /// Base64-encoded file data.
-        data: String,
-    },
-
-    /// Clipboard file saved to path (for get-file --output).
-    ClipboardFileSaved {
-        /// File name from clipboard.
-        name: String,
-        /// File size in bytes.
-        size: u64,
-        /// Path where file was saved.
-        path: String,
-    },
-
     /// Session information.
     SessionInfo(SessionInfo),
 

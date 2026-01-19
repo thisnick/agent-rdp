@@ -3,13 +3,12 @@
 //! This module provides a custom clipboard backend that stores clipboard data
 //! and communicates with the frame processor via channels.
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use ironrdp_cliprdr::backend::{CliprdrBackend, ClipboardMessage, ClipboardMessageProxy};
 use ironrdp_cliprdr::pdu::{
-    ClipboardGeneralCapabilityFlags, FileContentsRequest,
-    FileContentsResponse, FormatDataRequest, FormatDataResponse, LockDataId, OwnedFormatDataResponse,
+    ClipboardGeneralCapabilityFlags, FileContentsRequest, FileContentsResponse,
+    FormatDataRequest, FormatDataResponse, LockDataId, OwnedFormatDataResponse,
 };
 use ironrdp_cliprdr::{Cliprdr, Client};
 use ironrdp_svc::impl_as_any;
@@ -21,47 +20,9 @@ use tracing::{debug, info, warn};
 pub use ironrdp_cliprdr::pdu::{ClipboardFormat, ClipboardFormatId};
 pub use ironrdp_cliprdr::CliprdrClient;
 
-/// Standard clipboard format ID for Unicode text (cf_unicodetext() = 13).
+/// Standard clipboard format ID for Unicode text (CF_UNICODETEXT = 13).
 pub fn cf_unicodetext() -> ClipboardFormatId {
     ClipboardFormatId::new(13)
-}
-
-/// File data returned from clipboard operations.
-#[derive(Debug, Clone)]
-pub struct FileData {
-    pub name: String,
-    pub data: Vec<u8>,
-}
-
-/// File source - either a path (read on-demand) or in-memory data.
-#[derive(Debug, Clone)]
-pub enum LocalFile {
-    /// File path - read on-demand when server requests.
-    Path { path: PathBuf, name: String, size: u64 },
-    /// In-memory data (from stdin).
-    Data { name: String, data: Vec<u8> },
-}
-
-/// File info from remote clipboard.
-#[derive(Debug, Clone)]
-pub struct FileInfo {
-    pub name: String,
-    pub size: u64,
-}
-
-/// Commands sent from clipboard handler to frame processor.
-#[derive(Debug)]
-pub enum ClipboardCommand {
-    /// Set clipboard text and announce to remote.
-    SetText { text: String },
-    /// Get clipboard text from remote.
-    GetText { response_tx: tokio::sync::oneshot::Sender<Option<String>> },
-    /// Set file to clipboard (from path, read on-demand).
-    SetFilePath { path: PathBuf },
-    /// Set file to clipboard (from memory).
-    SetFileData { name: String, data: Vec<u8> },
-    /// Get file from clipboard.
-    GetFile { response_tx: tokio::sync::oneshot::Sender<Result<Option<FileData>, String>> },
 }
 
 /// Messages from backend to frame processor.
@@ -113,16 +74,6 @@ pub struct ClipboardState {
     pub remote_formats: Vec<ClipboardFormat>,
     /// Pending text get request response channel.
     pub pending_get: Option<tokio::sync::oneshot::Sender<Result<Option<String>, String>>>,
-
-    // File-related fields
-    /// File we want to send to remote (path or data).
-    pub local_file: Option<LocalFile>,
-    /// File metadata received from remote.
-    pub remote_file_info: Option<FileInfo>,
-    /// File data received from remote (accumulated).
-    pub remote_file_data: Option<Vec<u8>>,
-    /// Pending file get request response channel.
-    pub pending_file_get: Option<tokio::sync::oneshot::Sender<Result<Option<FileData>, String>>>,
 }
 
 impl Default for ClipboardState {
@@ -132,10 +83,6 @@ impl Default for ClipboardState {
             remote_text: None,
             remote_formats: Vec::new(),
             pending_get: None,
-            local_file: None,
-            remote_file_info: None,
-            remote_file_data: None,
-            pending_file_get: None,
         }
     }
 }
@@ -161,7 +108,7 @@ impl CliprdrBackend for AgentClipboardBackend {
     }
 
     fn client_capabilities(&self) -> ClipboardGeneralCapabilityFlags {
-        ClipboardGeneralCapabilityFlags::empty()
+        ClipboardGeneralCapabilityFlags::USE_LONG_FORMAT_NAMES
     }
 
     fn on_ready(&mut self) {
@@ -191,8 +138,6 @@ impl CliprdrBackend for AgentClipboardBackend {
         state.remote_formats = available_formats.to_vec();
         // Clear old remote data since new data is available.
         state.remote_text = None;
-        state.remote_file_info = None;
-        state.remote_file_data = None;
     }
 
     fn on_format_data_request(&mut self, request: FormatDataRequest) {

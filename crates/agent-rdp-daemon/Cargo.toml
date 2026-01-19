@@ -49,3 +49,6 @@ anyhow = { workspace = true }
 
 # Synchronization
 parking_lot = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true }
