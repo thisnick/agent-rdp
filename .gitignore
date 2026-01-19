@@ -6,6 +6,7 @@
 # Build artifacts
 /target/
 /dist/
+/bin/agent-rdp-*
 Cargo.lock
 
 # Node.js

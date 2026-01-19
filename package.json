@@ -27,8 +27,8 @@
   "scripts": {
     "postinstall": "node scripts/postinstall.cjs",
     "build:ts": "tsc",
-    "build:native": "cargo build --release && node scripts/copy-native.js",
-    "build:macos": "(cargo build --release --target aarch64-apple-darwin & cargo build --release --target x86_64-apple-darwin & wait) && cp target/aarch64-apple-darwin/release/agent-rdp bin/agent-rdp-darwin-arm64 && cp target/x86_64-apple-darwin/release/agent-rdp bin/agent-rdp-darwin-x64",
+    "build:native": "cargo build --release && node scripts/copy-native.cjs",
+    "build:all": "node scripts/build-all.cjs",
     "prepublishOnly": "npm run build:ts",
     "example": "tsx examples/hello-world.ts"
   },
