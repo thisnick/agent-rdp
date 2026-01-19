@@ -218,20 +218,11 @@ pub enum ClipboardRequest {
 }
 
 /// Drive mapping operation request.
+/// Note: Drives are configured at connect time with --drive flag.
+/// Dynamic mapping/unmapping is not supported by the RDP protocol.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum DriveRequest {
-    /// Map a local directory to a drive.
-    Map {
-        /// Local path to map.
-        path: String,
-        /// Name for the mapped drive.
-        name: String,
-    },
-
-    /// Unmap a drive.
-    Unmap { name: String },
-
     /// List mapped drives.
     List,
 }

@@ -1,0 +1,29 @@
+# Source code (Rust)
+crates/
+target/
+Cargo.toml
+Cargo.lock
+
+# Development files
+.github/
+.devbox/
+examples/
+docs/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Claude
+CLAUDE.md
+
+# Binaries are downloaded via postinstall, not bundled
+bin/agent-rdp-*

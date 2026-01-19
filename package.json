@@ -1,0 +1,34 @@
+{
+  "name": "agent-rdp",
+  "version": "0.1.0",
+  "description": "CLI tool for AI agents to control Windows Remote Desktop sessions",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anthropics/agent-rdp.git"
+  },
+  "license": "MIT OR Apache-2.0",
+  "bin": {
+    "agent-rdp": "./bin/agent-rdp"
+  },
+  "files": [
+    "bin",
+    "scripts"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js",
+    "build:native": "cargo build --release && node scripts/copy-native.js",
+    "build:macos": "(cargo build --release --target aarch64-apple-darwin & cargo build --release --target x86_64-apple-darwin & wait) && cp target/aarch64-apple-darwin/release/agent-rdp bin/agent-rdp-darwin-arm64 && cp target/x86_64-apple-darwin/release/agent-rdp bin/agent-rdp-darwin-x64"
+  },
+  "keywords": [
+    "rdp",
+    "remote-desktop",
+    "windows",
+    "automation",
+    "cli",
+    "agent"
+  ],
+  "bugs": {
+    "url": "https://github.com/anthropics/agent-rdp/issues"
+  },
+  "homepage": "https://github.com/anthropics/agent-rdp#readme"
+}

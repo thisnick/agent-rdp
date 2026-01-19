@@ -281,22 +281,7 @@ pub struct DriveArgs {
 
 #[derive(Subcommand)]
 pub enum DriveAction {
-    /// Map a local directory
-    Map {
-        /// Local path to map
-        path: String,
-        /// Name for the mapped drive
-        #[arg(long = "as", required = true)]
-        name: String,
-    },
-
-    /// Unmap a drive
-    Unmap {
-        /// Drive name to unmap
-        name: String,
-    },
-
-    /// List mapped drives
+    /// List mapped drives (drives are configured at connect time with --drive)
     List,
 }
 

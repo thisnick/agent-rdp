@@ -1,7 +1,6 @@
 //! Drive mapping handler.
 //!
-//! Drive mapping is configured at connect time using the --drive flag.
-//! Dynamic drive mapping (post-connection) is not supported.
+//! Drives are configured at connect time using the --drive flag.
 
 use std::sync::Arc;
 
@@ -25,26 +24,7 @@ pub async fn handle(
     };
 
     match action {
-        DriveRequest::Map { path: _, name: _ } => {
-            // Dynamic drive mapping is not supported - drives must be configured at connect time
-            Response::error(
-                ErrorCode::NotSupported,
-                "Dynamic drive mapping is not supported. Use --drive flag with the connect command instead. \
-                 Example: agent-rdp connect --host <ip> -u <user> -p <pass> --drive /path:DriveName",
-            )
-        }
-
-        DriveRequest::Unmap { name: _ } => {
-            // Dynamic drive unmapping is not supported
-            Response::error(
-                ErrorCode::NotSupported,
-                "Dynamic drive unmapping is not supported. Drives are configured at connect time. \
-                 Disconnect and reconnect without the drive to remove it.",
-            )
-        }
-
         DriveRequest::List => {
-            // Return the drives that were mapped at connect time
             let drives = rdp
                 .get_drives()
                 .into_iter()

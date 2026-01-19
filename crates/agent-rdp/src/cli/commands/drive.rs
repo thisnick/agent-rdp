@@ -22,8 +22,6 @@ pub async fn run(
     let mut client = manager.ensure_daemon().await?;
 
     let drive_request = match args.action {
-        DriveAction::Map { path, name } => DriveRequest::Map { path, name },
-        DriveAction::Unmap { name } => DriveRequest::Unmap { name },
         DriveAction::List => DriveRequest::List,
     };
 
