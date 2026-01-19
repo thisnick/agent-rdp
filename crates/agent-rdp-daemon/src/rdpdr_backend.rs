@@ -39,6 +39,7 @@ mod win {
     #[derive(Debug)]
     struct DirIterState {
         iter: ReadDir,
+        #[allow(dead_code)]
         base_path: PathBuf,
     }
 
@@ -700,7 +701,7 @@ mod win {
             .file_path_map
             .get(&req_inner.device_io_request.file_id)
         {
-            Some(parent_path) => {
+            Some(_parent_path) => {
                 let mut find_file_path = None;
 
                 if req_inner.initial_query > 0 {
