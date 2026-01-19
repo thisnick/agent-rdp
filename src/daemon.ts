@@ -23,12 +23,6 @@ function findBinary(): string {
   // When running from source (dist/ -> package root)
   const packageDir = path.resolve(__dirname, '..');
 
-  // Check for cargo target directory (development)
-  const cargoBinary = path.join(packageDir, 'target', 'release', 'agent-rdp');
-  if (fs.existsSync(cargoBinary)) {
-    return cargoBinary;
-  }
-
   // Check for npm package bin wrapper
   const binScript = path.join(packageDir, 'bin', 'agent-rdp');
   if (fs.existsSync(binScript)) {

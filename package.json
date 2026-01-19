@@ -27,7 +27,7 @@
   "scripts": {
     "postinstall": "node scripts/postinstall.cjs",
     "build:ts": "tsc",
-    "build:native": "cargo build --release && node scripts/copy-native.cjs",
+    "build": "cargo build --release && node scripts/copy-native.cjs",
     "build:all": "node scripts/build-all.cjs",
     "prepublishOnly": "npm run build:ts",
     "example": "tsx examples/hello-world.ts"
