@@ -5,11 +5,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build Commands
 
 ```bash
+# Rust
 cargo build           # Build all crates
 cargo build --release # Release build
 cargo test            # Run all tests
 cargo test -p agent-rdp-daemon  # Test specific crate
 cargo test test_name  # Run single test
+
+# npm/pnpm
+pnpm install          # Install dependencies
+pnpm build            # Build native binary + copy to bin/
+pnpm build:ts         # Build TypeScript only
+pnpm build:all        # Cross-compile all platforms (needs `cross`)
+pnpm example          # Run example script
 ```
 
 ## Architecture
@@ -21,6 +29,13 @@ agent-rdp is a CLI tool for AI agents to control Windows Remote Desktop sessions
 - **agent-rdp** - CLI binary that parses commands and communicates with daemon via IPC
 - **agent-rdp-daemon** - Background process maintaining RDP connection and processing commands
 - **agent-rdp-protocol** - Shared request/response types for IPC communication
+
+### TypeScript Structure
+
+- **src/index.ts** - Main `RdpSession` class with sub-controllers (mouse, keyboard, scroll, clipboard, drives)
+- **src/client.ts** - IPC client for Unix socket / TCP communication with daemon
+- **src/daemon.ts** - Daemon lifecycle management (spawn, health check)
+- **src/types.ts** - TypeScript interfaces mirroring `agent-rdp-protocol`
 
 ### Daemon-per-Session Model
 

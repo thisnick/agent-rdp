@@ -15,17 +15,20 @@ A CLI tool for AI agents to control Windows Remote Desktop sessions, built on [I
 
 ## Installation
 
+### From npm
+
+```bash
+npm install agent-rdp
+```
+
 ### From source
 
 ```bash
-# Clone the repository
 git clone https://github.com/anthropics/agent-rdp
 cd agent-rdp
-
-# Build
-cargo build --release
-
-# The binary is at target/release/agent-rdp
+pnpm install
+pnpm build      # Build native binary
+pnpm build:ts   # Build TypeScript
 ```
 
 ## Usage
@@ -195,6 +198,76 @@ agent-rdp --json screenshot --base64
 | `AGENT_RDP_SESSION` | Session name (default: "default") |
 | `AGENT_RDP_USERNAME` | RDP username |
 | `AGENT_RDP_PASSWORD` | RDP password |
+| `AGENT_RDP_STREAM_PORT` | WebSocket streaming port (0 = disabled) |
+| `AGENT_RDP_STREAM_FPS` | Frame rate for streaming (default: 10) |
+| `AGENT_RDP_STREAM_QUALITY` | JPEG quality 0-100 (default: 80) |
+
+## Node.js API
+
+Use agent-rdp programmatically from Node.js/TypeScript:
+
+```typescript
+import { RdpSession } from 'agent-rdp';
+
+const rdp = new RdpSession({ session: 'default' });
+
+await rdp.connect({
+  host: '192.168.1.100',
+  username: 'Administrator',
+  password: 'secret',
+  width: 1280,
+  height: 800,
+  drives: [{ path: '/tmp/share', name: 'Share' }],
+});
+
+// Screenshot
+const { base64, width, height } = await rdp.screenshot({ format: 'png' });
+
+// Mouse
+await rdp.mouse.click(100, 200);
+await rdp.mouse.rightClick(100, 200);
+await rdp.mouse.doubleClick(100, 200);
+await rdp.mouse.move(150, 250);
+await rdp.mouse.drag(100, 100, 500, 500);
+
+// Keyboard
+await rdp.keyboard.type('Hello World');
+await rdp.keyboard.press('ctrl+c');
+await rdp.keyboard.key('enter');
+
+// Scroll
+await rdp.scroll.up(3);
+await rdp.scroll.down(5);
+
+// Clipboard
+await rdp.clipboard.set('text to copy');
+const text = await rdp.clipboard.get();
+
+// Drives
+const drives = await rdp.drives.list();
+
+// Session info
+const info = await rdp.getInfo();
+
+// Disconnect
+await rdp.disconnect();
+```
+
+### WebSocket Streaming
+
+Enable WebSocket streaming for real-time screen capture:
+
+```typescript
+const rdp = new RdpSession({
+  session: 'viewer',
+  streamPort: 9224,  // Enable streaming
+});
+
+await rdp.connect({...});
+
+// Connect your WebSocket client to receive JPEG frames
+const streamUrl = rdp.getStreamUrl(); // "ws://localhost:9224"
+```
 
 ## Architecture
 
