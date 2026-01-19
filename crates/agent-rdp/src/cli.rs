@@ -259,12 +259,38 @@ pub struct ClipboardArgs {
 #[derive(Subcommand)]
 pub enum ClipboardAction {
     /// Get clipboard text
-    Get,
+    GetText,
 
     /// Set clipboard text
-    Set {
+    SetText {
         /// Text to set
         text: String,
+    },
+
+    /// Get file from clipboard
+    GetFile {
+        /// Save to file path (mutually exclusive with --base64)
+        #[arg(long, short = 'o', conflicts_with = "base64")]
+        output: Option<String>,
+
+        /// Output base64 to stdout instead of file
+        #[arg(long)]
+        base64: bool,
+    },
+
+    /// Set file to clipboard
+    SetFile {
+        /// File path to read from (mutually exclusive with --base64)
+        #[arg(conflicts_with = "base64")]
+        path: Option<String>,
+
+        /// Read base64 from stdin instead of file
+        #[arg(long)]
+        base64: bool,
+
+        /// File name to use in clipboard (required when using --base64)
+        #[arg(long)]
+        name: Option<String>,
     },
 }
 

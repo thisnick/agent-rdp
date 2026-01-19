@@ -76,6 +76,21 @@ enum SessionCommand {
     ClipboardGet {
         response_tx: tokio::sync::oneshot::Sender<Result<Option<String>, String>>,
     },
+    /// Set file to clipboard (from path, read on-demand).
+    ClipboardSetFilePath {
+        path: std::path::PathBuf,
+        response_tx: tokio::sync::oneshot::Sender<Result<(), String>>,
+    },
+    /// Set file to clipboard (from memory).
+    ClipboardSetFileData {
+        name: String,
+        data: Vec<u8>,
+        response_tx: tokio::sync::oneshot::Sender<Result<(), String>>,
+    },
+    /// Get file from clipboard.
+    ClipboardGetFile {
+        response_tx: tokio::sync::oneshot::Sender<Result<Option<clipboard::FileData>, String>>,
+    },
     Shutdown,
 }
 
@@ -425,6 +440,51 @@ impl RdpSession {
             .map_err(|e| RdpError::ProtocolError(e))
     }
 
+    /// Set file to clipboard from a file path (daemon reads on-demand).
+    pub async fn clipboard_set_file_path(&self, path: String) -> Result<(), RdpError> {
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+        self.command_tx
+            .send(SessionCommand::ClipboardSetFilePath {
+                path: std::path::PathBuf::from(path),
+                response_tx,
+            })
+            .await
+            .map_err(|_| RdpError::SessionClosed)?;
+
+        response_rx
+            .await
+            .map_err(|_| RdpError::SessionClosed)?
+            .map_err(|e| RdpError::ProtocolError(e))
+    }
+
+    /// Set file to clipboard from in-memory data.
+    pub async fn clipboard_set_file_data(&self, name: String, data: Vec<u8>) -> Result<(), RdpError> {
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+        self.command_tx
+            .send(SessionCommand::ClipboardSetFileData { name, data, response_tx })
+            .await
+            .map_err(|_| RdpError::SessionClosed)?;
+
+        response_rx
+            .await
+            .map_err(|_| RdpError::SessionClosed)?
+            .map_err(|e| RdpError::ProtocolError(e))
+    }
+
+    /// Get file from clipboard.
+    pub async fn clipboard_get_file(&self) -> Result<Option<clipboard::FileData>, RdpError> {
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+        self.command_tx
+            .send(SessionCommand::ClipboardGetFile { response_tx })
+            .await
+            .map_err(|_| RdpError::SessionClosed)?;
+
+        response_rx
+            .await
+            .map_err(|_| RdpError::SessionClosed)?
+            .map_err(|e| RdpError::ProtocolError(e))
+    }
+
     /// Disconnect from the RDP server.
     pub async fn disconnect(self) -> Result<(), RdpError> {
         info!("Disconnecting from RDP session");
@@ -546,6 +606,24 @@ async fn run_frame_processor(
                                 }
                             }
                         }
+                    }
+                    Some(SessionCommand::ClipboardSetFilePath { path, response_tx }) => {
+                        debug!("Clipboard set file path: {:?}", path);
+                        // TODO: Implement CLIPRDR file transfer
+                        // For now, return "not implemented"
+                        let _ = response_tx.send(Err("File clipboard not yet implemented".to_string()));
+                    }
+                    Some(SessionCommand::ClipboardSetFileData { name, data, response_tx }) => {
+                        debug!("Clipboard set file data: {} ({} bytes)", name, data.len());
+                        // TODO: Implement CLIPRDR file transfer
+                        // For now, return "not implemented"
+                        let _ = response_tx.send(Err("File clipboard not yet implemented".to_string()));
+                    }
+                    Some(SessionCommand::ClipboardGetFile { response_tx }) => {
+                        debug!("Clipboard get file requested");
+                        // TODO: Implement CLIPRDR file transfer
+                        // For now, return "not implemented"
+                        let _ = response_tx.send(Err("File clipboard not yet implemented".to_string()));
                     }
                     Some(SessionCommand::Shutdown) => {
                         info!("Shutdown command received");
