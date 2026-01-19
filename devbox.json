@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/main/.schema/devbox.schema.json",
+  "packages": [
+    "rustup@latest",
+    "direnv@latest"
+  ],
+  "shell": {
+    "init_hook": [
+      "rustup default stable",
+      "rustup component add clippy rustfmt"
+    ]
+  }
+}

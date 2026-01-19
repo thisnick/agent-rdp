@@ -1,0 +1,68 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/agent-rdp",
+    "crates/agent-rdp-daemon",
+    "crates/agent-rdp-protocol",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/anthropics/agent-rdp"
+rust-version = "1.75"
+
+[workspace.dependencies]
+# Internal crates
+agent-rdp-daemon = { path = "crates/agent-rdp-daemon" }
+agent-rdp-protocol = { path = "crates/agent-rdp-protocol" }
+
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# IronRDP - use umbrella crate with features
+ironrdp = { version = "0.14", features = ["connector", "session", "input", "graphics"] }
+ironrdp-tokio = "0.8"
+ironrdp-graphics = "0.7"
+ironrdp-cliprdr-native = "0.5"
+ironrdp-rdpdr = "0.5"
+ironrdp-rdpdr-native = "0.5"
+ironrdp-rdpsnd = "0.7"
+ironrdp-svc = "0.6"
+
+# Certificate parsing
+x509-cert = "0.2"
+
+# TLS
+tokio-rustls = "0.26"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+rustls-pemfile = "2"
+webpki-roots = "0.26"
+
+# Image processing
+image = { version = "0.25", features = ["png", "jpeg"] }
+base64 = "0.22"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+thiserror = "1"
+anyhow = "1"
+
+# Testing
+proptest = "1"
+
+# Platform utilities
+glob = "0.3"
+libc = "0.2"
+parking_lot = "0.12"

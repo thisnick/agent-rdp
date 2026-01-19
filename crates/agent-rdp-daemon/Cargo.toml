@@ -1,0 +1,49 @@
+[package]
+name = "agent-rdp-daemon"
+description = "Daemon process for agent-rdp RDP session management"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+agent-rdp-protocol = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# IronRDP
+ironrdp = { workspace = true }
+ironrdp-tokio = { workspace = true }
+ironrdp-graphics = { workspace = true }
+ironrdp-rdpdr = { workspace = true }
+ironrdp-rdpdr-native = { workspace = true }
+ironrdp-rdpsnd = { workspace = true }
+ironrdp-svc = { workspace = true }
+
+# Certificate parsing
+x509-cert = { workspace = true }
+
+# TLS
+tokio-rustls = { workspace = true }
+rustls = { workspace = true }
+webpki-roots = { workspace = true }
+
+# Image processing
+image = { workspace = true }
+base64 = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Synchronization
+parking_lot = { workspace = true }
