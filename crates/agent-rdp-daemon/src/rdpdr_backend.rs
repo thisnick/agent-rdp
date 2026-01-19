@@ -17,10 +17,11 @@ mod win {
     use std::os::windows::fs::MetadataExt;
     use std::path::{Path, PathBuf};
 
+    use ironrdp::pdu::{encode_err, PduResult};
     use ironrdp_rdpdr::pdu::efs::*;
     use ironrdp_rdpdr::pdu::esc::{ScardCall, ScardIoCtlCode};
     use ironrdp_rdpdr::pdu::RdpdrPdu;
-    use ironrdp_rdpdr::{encode_err, PduResult, RdpdrBackend};
+    use ironrdp_rdpdr::RdpdrBackend;
     use ironrdp_svc::{impl_as_any, SvcMessage};
     use tracing::{debug, warn};
 
