@@ -4,7 +4,7 @@
   "description": "CLI tool for AI agents to control Windows Remote Desktop sessions",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/anthropics/agent-rdp.git"
+    "url": "git+https://github.com/thisnick/agent-rdp.git"
   },
   "license": "MIT OR Apache-2.0",
   "type": "module",
@@ -41,9 +41,9 @@
     "agent"
   ],
   "bugs": {
-    "url": "https://github.com/anthropics/agent-rdp/issues"
+    "url": "https://github.com/thisnick/agent-rdp/issues"
   },
-  "homepage": "https://github.com/anthropics/agent-rdp#readme",
+  "homepage": "https://github.com/thisnick/agent-rdp#readme",
   "devDependencies": {
     "@types/node": "^20.0.0",
     "tsx": "^4.7.0",

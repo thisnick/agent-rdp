@@ -24,7 +24,7 @@ npm install agent-rdp
 ### From source
 
 ```bash
-git clone https://github.com/anthropics/agent-rdp
+git clone https://github.com/thisnick/agent-rdp
 cd agent-rdp
 pnpm install
 pnpm build      # Build native binary
