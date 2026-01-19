@@ -18,8 +18,8 @@ pub async fn run(
     // Get password from args, env, or stdin
     let password = get_password(&args, output)?;
 
-    // Parse drive mapping (single drive only)
-    let drives = parse_drive_mapping(&args.drive, output)?;
+    // Parse drive mappings
+    let drives = parse_drive_mappings(&args.drives, output)?;
 
     let manager = SessionManager::new(session.to_string());
     let mut client = manager.ensure_daemon().await?;
@@ -45,67 +45,69 @@ pub async fn run(
     Ok(())
 }
 
-/// Parse a single drive mapping string (format: /path:DriveName) into a DriveMapping.
-fn parse_drive_mapping(drive: &Option<String>, output: &Output) -> anyhow::Result<Vec<DriveMapping>> {
-    let Some(drive_spec) = drive else {
-        return Ok(vec![]);
-    };
+/// Parse drive mapping strings (format: /path:DriveName) into DriveMappings.
+fn parse_drive_mappings(drives: &[String], output: &Output) -> anyhow::Result<Vec<DriveMapping>> {
+    let mut result = Vec::new();
 
-    // Find the last colon to split path from name
-    if let Some(colon_pos) = drive_spec.rfind(':') {
-        let path = &drive_spec[..colon_pos];
-        let name = &drive_spec[colon_pos + 1..];
+    for drive_spec in drives {
+        // Find the last colon to split path from name
+        if let Some(colon_pos) = drive_spec.rfind(':') {
+            let path = &drive_spec[..colon_pos];
+            let name = &drive_spec[colon_pos + 1..];
 
-        if path.is_empty() {
+            if path.is_empty() {
+                output.print_error(
+                    "invalid_drive",
+                    &format!("Invalid drive mapping '{}': path cannot be empty", drive_spec),
+                );
+                std::process::exit(1);
+            }
+
+            if name.is_empty() {
+                output.print_error(
+                    "invalid_drive",
+                    &format!("Invalid drive mapping '{}': name cannot be empty", drive_spec),
+                );
+                std::process::exit(1);
+            }
+
+            // Expand ~ to home directory and verify path exists
+            let expanded_path = shellexpand::tilde(path);
+            let path_ref = Path::new(expanded_path.as_ref());
+
+            if !path_ref.exists() {
+                output.print_error(
+                    "invalid_drive",
+                    &format!("Drive path '{}' does not exist", expanded_path),
+                );
+                std::process::exit(1);
+            }
+
+            if !path_ref.is_dir() {
+                output.print_error(
+                    "invalid_drive",
+                    &format!("Drive path '{}' is not a directory", expanded_path),
+                );
+                std::process::exit(1);
+            }
+
+            result.push(DriveMapping {
+                path: expanded_path.into_owned(),
+                name: name.to_string(),
+            });
+        } else {
             output.print_error(
                 "invalid_drive",
-                &format!("Invalid drive mapping '{}': path cannot be empty", drive_spec),
+                &format!(
+                    "Invalid drive mapping '{}': expected format /path:DriveName",
+                    drive_spec
+                ),
             );
             std::process::exit(1);
         }
-
-        if name.is_empty() {
-            output.print_error(
-                "invalid_drive",
-                &format!("Invalid drive mapping '{}': name cannot be empty", drive_spec),
-            );
-            std::process::exit(1);
-        }
-
-        // Expand ~ to home directory and verify path exists
-        let expanded_path = shellexpand::tilde(path);
-        let path_ref = Path::new(expanded_path.as_ref());
-
-        if !path_ref.exists() {
-            output.print_error(
-                "invalid_drive",
-                &format!("Drive path '{}' does not exist", expanded_path),
-            );
-            std::process::exit(1);
-        }
-
-        if !path_ref.is_dir() {
-            output.print_error(
-                "invalid_drive",
-                &format!("Drive path '{}' is not a directory", expanded_path),
-            );
-            std::process::exit(1);
-        }
-
-        Ok(vec![DriveMapping {
-            path: expanded_path.into_owned(),
-            name: name.to_string(),
-        }])
-    } else {
-        output.print_error(
-            "invalid_drive",
-            &format!(
-                "Invalid drive mapping '{}': expected format /path:DriveName",
-                drive_spec
-            ),
-        );
-        std::process::exit(1);
     }
+
+    Ok(result)
 }
 
 /// Get password from command line, environment, or stdin.

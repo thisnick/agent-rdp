@@ -121,10 +121,10 @@ agent-rdp --json clipboard get
 
 ### Drive Mapping
 
-Map local directories as network drives on the remote Windows machine. Drives must be mapped at connect time.
+Map local directories as network drives on the remote Windows machine. Drives must be mapped at connect time. Multiple drives can be specified.
 
 ```bash
-# Map a local directory during connection
+# Map local directories during connection
 agent-rdp connect --host 192.168.1.100 -u Administrator -p secret \
   --drive /home/user/documents:Documents \
   --drive /tmp/shared:Shared

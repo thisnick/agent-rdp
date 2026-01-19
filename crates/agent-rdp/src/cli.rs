@@ -100,9 +100,9 @@ pub struct ConnectArgs {
     #[arg(long, default_value = "800")]
     pub height: u16,
 
-    /// Map a local directory as a drive (format: /path:DriveName)
+    /// Map local directories as drives (format: /path:DriveName, can be specified multiple times)
     #[arg(long = "drive", value_name = "PATH:NAME")]
-    pub drive: Option<String>,
+    pub drives: Vec<String>,
 }
 
 /// Screenshot command arguments.
