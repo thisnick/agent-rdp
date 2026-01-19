@@ -32,6 +32,7 @@ tokio = { version = "1", features = ["full"] }
 ironrdp = { version = "0.14", features = ["connector", "session", "input", "graphics"] }
 ironrdp-tokio = "0.8"
 ironrdp-graphics = "0.7"
+ironrdp-cliprdr = "0.5"
 ironrdp-cliprdr-native = "0.5"
 ironrdp-rdpdr = "0.5"
 ironrdp-rdpdr-native = "0.5"

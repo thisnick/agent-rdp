@@ -25,6 +25,8 @@ use ironrdp_rdpsnd::client::{NoopRdpsndBackend, Rdpsnd};
 use ironrdp_tokio::{FramedWrite, TokioFramed};
 use tokio::net::TcpStream;
 
+pub mod clipboard;
+
 #[derive(Error, Debug)]
 pub enum RdpError {
     #[error("Connection failed: {0}")]
@@ -65,6 +67,15 @@ pub struct RdpConfig {
 /// Commands sent to the background frame processor.
 enum SessionCommand {
     SendInput(Vec<FastPathInputEvent>),
+    /// Set clipboard text and announce to remote.
+    ClipboardSet {
+        text: String,
+        response_tx: tokio::sync::oneshot::Sender<Result<(), String>>,
+    },
+    /// Get clipboard text from remote.
+    ClipboardGet {
+        response_tx: tokio::sync::oneshot::Sender<Result<Option<String>, String>>,
+    },
     Shutdown,
 }
 
@@ -76,6 +87,8 @@ struct SharedState {
     height: u16,
     /// Drives that were mapped at connect time.
     drives: Vec<DriveMapping>,
+    /// Clipboard state for CLIPRDR.
+    clipboard: Arc<parking_lot::Mutex<clipboard::ClipboardState>>,
 }
 
 /// An active RDP session with background frame processing.
@@ -154,14 +167,21 @@ impl RdpSession {
         // Create connector
         let mut connector = ClientConnector::new(connector_config, client_addr);
 
+        // Create clipboard state (shared between backend and session)
+        let clipboard_state = Arc::new(parking_lot::Mutex::new(clipboard::ClipboardState::default()));
+
+        // RDPSND (audio) channel - required for RDPDR on Windows 2012+ and good to have
+        let rdpsnd = Rdpsnd::new(Box::new(NoopRdpsndBackend));
+        connector.attach_static_channel(rdpsnd);
+
+        // Set up CLIPRDR (clipboard) with our custom backend
+        let (cliprdr, clipboard_backend_rx) = clipboard::create_cliprdr(Arc::clone(&clipboard_state));
+        connector.attach_static_channel(cliprdr);
+        info!("Clipboard redirection enabled");
+
         // Set up RDPDR (drive redirection) if drives are configured
         #[cfg(unix)]
         if !config.drives.is_empty() {
-            // IMPORTANT: RDPSND (audio) channel must be present for RDPDR to work on Windows 2012+
-            // The server won't send RDPDR responses without it
-            let rdpsnd = Rdpsnd::new(Box::new(NoopRdpsndBackend));
-            connector.attach_static_channel(rdpsnd);
-
             // Use the first drive's path as the base directory for the native backend
             // Note: NixRdpdrBackend only supports a single base directory
             let first_drive = &config.drives[0];
@@ -245,6 +265,7 @@ impl RdpSession {
             width: config.width,
             height: config.height,
             drives: config.drives.clone(),
+            clipboard: clipboard_state,
         }));
 
         // Create command channel
@@ -259,6 +280,7 @@ impl RdpSession {
                 shared_clone,
                 command_rx,
                 disconnect_notify,
+                clipboard_backend_rx,
             )
             .await;
         });
@@ -375,6 +397,34 @@ impl RdpSession {
             .map_err(|_| RdpError::SessionClosed)
     }
 
+    /// Set clipboard text (will be available when remote pastes).
+    pub async fn clipboard_set(&self, text: String) -> Result<(), RdpError> {
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+        self.command_tx
+            .send(SessionCommand::ClipboardSet { text, response_tx })
+            .await
+            .map_err(|_| RdpError::SessionClosed)?;
+
+        response_rx
+            .await
+            .map_err(|_| RdpError::SessionClosed)?
+            .map_err(|e| RdpError::ProtocolError(e))
+    }
+
+    /// Get clipboard text from remote.
+    pub async fn clipboard_get(&self) -> Result<Option<String>, RdpError> {
+        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+        self.command_tx
+            .send(SessionCommand::ClipboardGet { response_tx })
+            .await
+            .map_err(|_| RdpError::SessionClosed)?;
+
+        response_rx
+            .await
+            .map_err(|_| RdpError::SessionClosed)?
+            .map_err(|e| RdpError::ProtocolError(e))
+    }
+
     /// Disconnect from the RDP server.
     pub async fn disconnect(self) -> Result<(), RdpError> {
         info!("Disconnecting from RDP session");
@@ -390,6 +440,7 @@ async fn run_frame_processor(
     shared: Arc<RwLock<SharedState>>,
     mut command_rx: mpsc::Receiver<SessionCommand>,
     disconnect_notify: Option<DisconnectNotify>,
+    mut clipboard_backend_rx: mpsc::UnboundedReceiver<clipboard::BackendMessage>,
 ) {
     info!("Frame processor started");
     let mut graceful_shutdown = false;
@@ -429,6 +480,70 @@ async fn run_frame_processor(
                             debug!("Sending input frame of {} bytes", frame.len());
                             if let Err(e) = framed.write_all(frame).await {
                                 error!("Failed to send input frame: {}", e);
+                            }
+                        }
+                    }
+                    Some(SessionCommand::ClipboardSet { text, response_tx }) => {
+                        debug!("Clipboard set: {} chars", text.len());
+                        // Store text in clipboard state
+                        {
+                            let state = shared.read();
+                            let mut clipboard = state.clipboard.lock();
+                            clipboard.local_text = Some(text);
+                        }
+                        // Trigger initiate_copy to announce we have data
+                        if let Some(cliprdr) = active_stage.get_svc_processor_mut::<clipboard::CliprdrClient>() {
+                            let formats = vec![clipboard::ClipboardFormat::new(clipboard::cf_unicodetext())];
+                            match cliprdr.initiate_copy(&formats) {
+                                Ok(messages) => {
+                                    if let Ok(pdu_bytes) = active_stage.process_svc_processor_messages(messages) {
+                                        let _ = framed.write_all(&pdu_bytes).await;
+                                    }
+                                    let _ = response_tx.send(Ok(()));
+                                }
+                                Err(e) => {
+                                    let _ = response_tx.send(Err(format!("initiate_copy failed: {}", e)));
+                                }
+                            }
+                        } else {
+                            let _ = response_tx.send(Err("Clipboard not available".to_string()));
+                        }
+                    }
+                    Some(SessionCommand::ClipboardGet { response_tx }) => {
+                        debug!("Clipboard get requested");
+                        // Check if we already have remote text cached
+                        let cached = {
+                            let state = shared.read();
+                            let clipboard = state.clipboard.lock();
+                            clipboard.remote_text.clone()
+                        };
+                        if let Some(text) = cached {
+                            let _ = response_tx.send(Ok(Some(text)));
+                        } else {
+                            // Need to request from remote - store the response channel
+                            {
+                                let state = shared.read();
+                                let mut clipboard = state.clipboard.lock();
+                                clipboard.pending_get = Some(response_tx);
+                            }
+                            // Initiate paste to request data
+                            if let Some(cliprdr) = active_stage.get_svc_processor_mut::<clipboard::CliprdrClient>() {
+                                match cliprdr.initiate_paste(clipboard::cf_unicodetext()) {
+                                    Ok(messages) => {
+                                        if let Ok(pdu_bytes) = active_stage.process_svc_processor_messages(messages) {
+                                            let _ = framed.write_all(&pdu_bytes).await;
+                                        }
+                                    }
+                                    Err(e) => {
+                                        error!("initiate_paste failed: {}", e);
+                                        // Return pending response with error
+                                        let state = shared.read();
+                                        let mut clipboard = state.clipboard.lock();
+                                        if let Some(tx) = clipboard.pending_get.take() {
+                                            let _ = tx.send(Err(format!("initiate_paste failed: {}", e)));
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -512,6 +627,44 @@ async fn run_frame_processor(
                     Err(e) => {
                         error!("Failed to read PDU: {}", e);
                         break;
+                    }
+                }
+            }
+
+            // Handle clipboard backend messages
+            msg = clipboard_backend_rx.recv() => {
+                if let Some(msg) = msg {
+                    match msg {
+                        clipboard::BackendMessage::InitiateCopy(formats) => {
+                            debug!("Backend: InitiateCopy with {} formats", formats.len());
+                            if let Some(cliprdr) = active_stage.get_svc_processor_mut::<clipboard::CliprdrClient>() {
+                                if let Ok(messages) = cliprdr.initiate_copy(&formats) {
+                                    if let Ok(pdu_bytes) = active_stage.process_svc_processor_messages(messages) {
+                                        let _ = framed.write_all(&pdu_bytes).await;
+                                    }
+                                }
+                            }
+                        }
+                        clipboard::BackendMessage::FormatData(response) => {
+                            debug!("Backend: FormatData");
+                            if let Some(cliprdr) = active_stage.get_svc_processor_mut::<clipboard::CliprdrClient>() {
+                                if let Ok(messages) = cliprdr.submit_format_data(response) {
+                                    if let Ok(pdu_bytes) = active_stage.process_svc_processor_messages(messages) {
+                                        let _ = framed.write_all(&pdu_bytes).await;
+                                    }
+                                }
+                            }
+                        }
+                        clipboard::BackendMessage::InitiatePaste(format_id) => {
+                            debug!("Backend: InitiatePaste for {:?}", format_id);
+                            if let Some(cliprdr) = active_stage.get_svc_processor_mut::<clipboard::CliprdrClient>() {
+                                if let Ok(messages) = cliprdr.initiate_paste(format_id) {
+                                    if let Ok(pdu_bytes) = active_stage.process_svc_processor_messages(messages) {
+                                        let _ = framed.write_all(&pdu_bytes).await;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

@@ -33,9 +33,6 @@ pub struct Daemon {
 
     /// Sender for connection drop notifications (passed to RDP sessions).
     disconnect_tx: tokio::sync::mpsc::Sender<()>,
-
-    /// Clipboard content stored in daemon.
-    clipboard: Arc<Mutex<String>>,
 }
 
 impl Daemon {
@@ -62,7 +59,6 @@ impl Daemon {
             shutdown_tx,
             disconnect_rx,
             disconnect_tx,
-            clipboard: Arc::new(Mutex::new(String::new())),
         })
     }
 
@@ -81,10 +77,9 @@ impl Daemon {
                             let start_time = self.start_time;
                             let shutdown_tx = self.shutdown_tx.clone();
                             let disconnect_tx = self.disconnect_tx.clone();
-                            let clipboard = Arc::clone(&self.clipboard);
 
                             tokio::spawn(async move {
-                                if let Err(e) = handle_client(stream, session, session_name, start_time, shutdown_tx, disconnect_tx, clipboard).await {
+                                if let Err(e) = handle_client(stream, session, session_name, start_time, shutdown_tx, disconnect_tx).await {
                                     error!("Client handler error: {}", e);
                                 }
                             });
@@ -151,7 +146,6 @@ async fn handle_client(
     start_time: Instant,
     shutdown_tx: broadcast::Sender<()>,
     disconnect_tx: tokio::sync::mpsc::Sender<()>,
-    clipboard: Arc<Mutex<String>>,
 ) -> anyhow::Result<()> {
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
@@ -186,7 +180,6 @@ async fn handle_client(
             &session_name,
             start_time,
             &disconnect_tx,
-            &clipboard,
         ).await;
 
         let json = serde_json::to_string(&response)? + "\n";
@@ -210,7 +203,6 @@ async fn process_request(
     session_name: &str,
     start_time: Instant,
     disconnect_tx: &tokio::sync::mpsc::Sender<()>,
-    clipboard: &Arc<Mutex<String>>,
 ) -> Response {
     match request {
         Request::Ping => Response::success(ResponseData::Pong),
@@ -269,7 +261,7 @@ async fn process_request(
         }
 
         Request::Clipboard(action) => {
-            handlers::clipboard::handle(clipboard, action).await
+            handlers::clipboard::handle(rdp_session, action).await
         }
 
         Request::Drive(action) => {

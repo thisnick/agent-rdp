@@ -21,6 +21,8 @@ serde_json = { workspace = true }
 ironrdp = { workspace = true }
 ironrdp-tokio = { workspace = true }
 ironrdp-graphics = { workspace = true }
+ironrdp-cliprdr = { workspace = true }
+ironrdp-cliprdr-native = { workspace = true }
 ironrdp-rdpdr = { workspace = true }
 ironrdp-rdpdr-native = { workspace = true }
 ironrdp-rdpsnd = { workspace = true }

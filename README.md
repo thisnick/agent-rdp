@@ -8,6 +8,8 @@ A CLI tool for AI agents to control Windows Remote Desktop sessions, built on [I
 - **Take screenshots** - Capture the remote desktop as PNG or JPEG
 - **Mouse control** - Click, double-click, right-click, drag, scroll
 - **Keyboard input** - Type text, press key combinations (Ctrl+C, Alt+Tab, etc.)
+- **Clipboard sync** - Copy/paste text between local machine and remote Windows
+- **Drive mapping** - Map local directories as network drives on the remote machine
 - **JSON output** - Structured output for AI agent consumption
 - **Session management** - Multiple named sessions with automatic daemon lifecycle
 
@@ -100,6 +102,35 @@ agent-rdp scroll down --amount 5
 agent-rdp scroll left
 agent-rdp scroll right
 ```
+
+### Clipboard
+
+```bash
+# Set clipboard text (available when you paste on Windows)
+agent-rdp clipboard set "Hello from CLI"
+
+# Get clipboard text (after copying on Windows)
+agent-rdp clipboard get
+
+# With JSON output
+agent-rdp --json clipboard get
+```
+
+### Drive Mapping
+
+Map local directories as network drives on the remote Windows machine. Drives must be mapped at connect time.
+
+```bash
+# Map a local directory during connection
+agent-rdp connect --host 192.168.1.100 -u Administrator -p secret \
+  --drive /home/user/documents:Documents \
+  --drive /tmp/shared:Shared
+
+# List mapped drives
+agent-rdp drive list
+```
+
+On the remote Windows machine, mapped drives appear in File Explorer as network locations.
 
 ### Session Management
 
