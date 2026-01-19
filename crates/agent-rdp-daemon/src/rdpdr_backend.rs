@@ -11,20 +11,17 @@ pub use self::win::WinRdpdrBackend as PlatformRdpdrBackend;
 #[cfg(windows)]
 mod win {
     use std::collections::HashMap;
-    use std::ffi::OsStr;
     use std::fs::{self, File, ReadDir};
     use std::io::{Read, Seek, SeekFrom, Write};
     use std::os::windows::ffi::OsStrExt;
     use std::os::windows::fs::MetadataExt;
     use std::path::{Path, PathBuf};
 
-    use ironrdp_core::impl_as_any;
-    use ironrdp_pdu::{encode_err, PduResult};
     use ironrdp_rdpdr::pdu::efs::*;
     use ironrdp_rdpdr::pdu::esc::{ScardCall, ScardIoCtlCode};
     use ironrdp_rdpdr::pdu::RdpdrPdu;
-    use ironrdp_rdpdr::RdpdrBackend;
-    use ironrdp_svc::SvcMessage;
+    use ironrdp_rdpdr::{encode_err, PduResult, RdpdrBackend};
+    use ironrdp_svc::{impl_as_any, SvcMessage};
     use tracing::{debug, warn};
 
     /// Windows implementation of the RDPDR backend for drive redirection.
