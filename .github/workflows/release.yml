@@ -89,7 +89,28 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Copy binaries to bin/
+        run: |
+          cp release/agent-rdp-darwin-arm64 bin/
+          cp release/agent-rdp-darwin-x64 bin/
+          cp release/agent-rdp-linux-x64 bin/
+          cp release/agent-rdp-linux-arm64 bin/
+          cp release/agent-rdp-win32-x64.exe bin/
+          chmod +x bin/agent-rdp-*
+          ls -la bin/
+
+      - name: Install dependencies
+        run: pnpm install --ignore-scripts
+
+      - name: Build TypeScript
+        run: pnpm run build:ts
+
       - name: Publish to npm
-        run: npm publish
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
