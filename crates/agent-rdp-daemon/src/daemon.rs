@@ -1,7 +1,7 @@
 //! Main daemon event loop.
 
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use agent_rdp_protocol::{Request, Response, ResponseData, SessionInfo, ConnectionState, ErrorCode};
 use tokio::sync::{broadcast, Mutex};
@@ -10,6 +10,7 @@ use tracing::{error, info, warn};
 use crate::handlers;
 use crate::ipc_server::IpcServer;
 use crate::rdp_session::RdpSession;
+use crate::ws_server::{WsServer, WsServerConfig, WsServerHandle};
 
 /// The main daemon that manages an RDP session.
 pub struct Daemon {
@@ -33,6 +34,12 @@ pub struct Daemon {
 
     /// Sender for connection drop notifications (passed to RDP sessions).
     disconnect_tx: tokio::sync::mpsc::Sender<()>,
+
+    /// WebSocket server handle for streaming (if enabled).
+    ws_handle: Option<WsServerHandle>,
+
+    /// WebSocket streaming frame interval.
+    stream_fps: u32,
 }
 
 impl Daemon {
@@ -49,22 +56,58 @@ impl Daemon {
         let (shutdown_tx, _) = broadcast::channel(1);
         let (disconnect_tx, disconnect_rx) = tokio::sync::mpsc::channel(1);
 
+        // Check for WebSocket streaming configuration
+        let stream_port = crate::ws_server::get_stream_port();
+        let stream_fps = crate::ws_server::get_stream_fps();
+        let stream_quality = crate::ws_server::get_stream_quality();
+
+        let rdp_session = Arc::new(Mutex::new(None));
+
+        // Start WebSocket server if configured
+        let ws_handle = if stream_port > 0 {
+            let config = WsServerConfig {
+                port: stream_port,
+                fps: stream_fps,
+                jpeg_quality: stream_quality,
+            };
+            let ws_server = WsServer::new(config);
+            match ws_server.start(Arc::clone(&rdp_session)).await {
+                Ok(handle) => {
+                    info!("WebSocket streaming enabled on port {}", stream_port);
+                    Some(handle)
+                }
+                Err(e) => {
+                    warn!("Failed to start WebSocket server: {}", e);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
         info!("Daemon started for session '{}' at {:?}", session_name, socket_path);
 
         Ok(Self {
             session_name,
-            rdp_session: Arc::new(Mutex::new(None)),
+            rdp_session,
             ipc_server,
             start_time: Instant::now(),
             shutdown_tx,
             disconnect_rx,
             disconnect_tx,
+            ws_handle,
+            stream_fps,
         })
     }
 
     /// Run the daemon event loop.
     pub async fn run(&mut self) -> anyhow::Result<()> {
         let mut shutdown_rx = self.shutdown_tx.subscribe();
+
+        // Frame broadcast interval for WebSocket streaming
+        let frame_interval = Duration::from_millis(1000 / self.stream_fps.max(1) as u64);
+        let mut frame_timer = tokio::time::interval(frame_interval);
+        frame_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         loop {
             tokio::select! {
@@ -106,6 +149,20 @@ impl Daemon {
                 _ = tokio::signal::ctrl_c() => {
                     info!("Received Ctrl+C, cleaning up...");
                     break;
+                }
+
+                // Broadcast frames to WebSocket clients
+                _ = frame_timer.tick(), if self.ws_handle.is_some() => {
+                    if let Some(ref handle) = self.ws_handle {
+                        if handle.has_clients() {
+                            let session = self.rdp_session.lock().await;
+                            if let Some(ref rdp) = *session {
+                                let (width, height, data) = rdp.get_image_data();
+                                drop(session); // Release lock before broadcasting
+                                handle.broadcast_frame(width, height, &data);
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -8,6 +8,8 @@ pub mod handlers;
 pub mod ipc_server;
 pub mod rdp_session;
 pub mod rdpdr_backend;
+pub mod ws_input;
+pub mod ws_server;
 
 pub use daemon::Daemon;
 pub use ipc_server::IpcServer;

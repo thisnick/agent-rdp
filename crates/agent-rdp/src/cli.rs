@@ -21,6 +21,10 @@ pub struct Cli {
     #[arg(long, default_value = "30000", global = true)]
     pub timeout: u64,
 
+    /// WebSocket streaming port (0 = disabled, enables browser viewer for debugging)
+    #[arg(long, default_value = "0", env = "AGENT_RDP_STREAM_PORT", global = true)]
+    pub stream_port: u16,
+
     #[command(subcommand)]
     pub command: Commands,
 }

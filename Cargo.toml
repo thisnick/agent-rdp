@@ -68,6 +68,10 @@ glob = "0.3"
 libc = "0.2"
 parking_lot = "0.12"
 
+# WebSocket
+tokio-tungstenite = "0.24"
+futures-util = "0.3"
+
 [workspace.dependencies.windows-sys]
 version = "0.59"
 features = ["Win32_Storage_FileSystem", "Win32_Foundation", "Win32_System_Threading"]

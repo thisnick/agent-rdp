@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>agent-rdp Viewer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: #1a1a2e;
+      color: #eee;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    #controls {
+      padding: 12px 16px;
+      background: #16213e;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    #controls label {
+      font-size: 14px;
+      color: #aaa;
+    }
+    #url {
+      padding: 8px 12px;
+      border: 1px solid #333;
+      border-radius: 4px;
+      background: #0f0f1a;
+      color: #fff;
+      font-size: 14px;
+      width: 280px;
+    }
+    #url:focus {
+      outline: none;
+      border-color: #4a9eff;
+    }
+    button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #connectBtn {
+      background: #4a9eff;
+      color: white;
+    }
+    #connectBtn:hover {
+      background: #3a8eef;
+    }
+    #connectBtn.connected {
+      background: #e74c3c;
+    }
+    #connectBtn.connected:hover {
+      background: #c0392b;
+    }
+    #fullscreenBtn {
+      background: #333;
+      color: #fff;
+    }
+    #fullscreenBtn:hover {
+      background: #444;
+    }
+    #status {
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      background: #333;
+    }
+    #status.connected {
+      background: #27ae60;
+    }
+    #status.connecting {
+      background: #f39c12;
+    }
+    #status.error {
+      background: #e74c3c;
+    }
+    #info {
+      font-size: 12px;
+      color: #888;
+      margin-left: auto;
+    }
+    #viewer {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow: hidden;
+    }
+    #screen {
+      max-width: 100%;
+      max-height: 100%;
+      background: #000;
+      cursor: crosshair;
+      image-rendering: auto;
+    }
+    #screen:focus {
+      outline: 2px solid #4a9eff;
+    }
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <label for="url">WebSocket:</label>
+    <input type="text" id="url" value="ws://localhost:9224" placeholder="ws://localhost:9224">
+    <button id="connectBtn" onclick="toggleConnection()">Connect</button>
+    <button id="fullscreenBtn" onclick="toggleFullscreen()">Fullscreen</button>
+    <span id="status">Disconnected</span>
+    <span id="info"></span>
+  </div>
+  <div id="viewer">
+    <canvas id="screen" tabindex="0"></canvas>
+  </div>
+
+  <script>
+    const urlInput = document.getElementById('url');
+    const connectBtn = document.getElementById('connectBtn');
+    const statusSpan = document.getElementById('status');
+    const infoSpan = document.getElementById('info');
+    const canvas = document.getElementById('screen');
+    const ctx = canvas.getContext('2d');
+
+    let ws = null;
+    let connected = false;
+    let deviceWidth = 0;
+    let deviceHeight = 0;
+
+    function setStatus(text, className) {
+      statusSpan.textContent = text;
+      statusSpan.className = className || '';
+    }
+
+    function updateInfo() {
+      if (deviceWidth && deviceHeight) {
+        infoSpan.textContent = `${deviceWidth}x${deviceHeight}`;
+      } else {
+        infoSpan.textContent = '';
+      }
+    }
+
+    function toggleConnection() {
+      if (connected) {
+        disconnect();
+      } else {
+        connect();
+      }
+    }
+
+    function connect() {
+      const url = urlInput.value.trim();
+      if (!url) return;
+
+      setStatus('Connecting...', 'connecting');
+
+      try {
+        ws = new WebSocket(url);
+      } catch (e) {
+        setStatus('Error: ' + e.message, 'error');
+        return;
+      }
+
+      ws.onopen = () => {
+        connected = true;
+        connectBtn.textContent = 'Disconnect';
+        connectBtn.classList.add('connected');
+        setStatus('Connected', 'connected');
+        canvas.focus();
+      };
+
+      ws.onclose = () => {
+        connected = false;
+        connectBtn.textContent = 'Connect';
+        connectBtn.classList.remove('connected');
+        setStatus('Disconnected', '');
+        ws = null;
+      };
+
+      ws.onerror = (e) => {
+        setStatus('Connection error', 'error');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          handleMessage(msg);
+        } catch (e) {
+          console.error('Failed to parse message:', e);
+        }
+      };
+    }
+
+    function disconnect() {
+      if (ws) {
+        ws.close();
+      }
+    }
+
+    function handleMessage(msg) {
+      if (msg.type === 'frame') {
+        const img = new Image();
+        img.onload = () => {
+          if (canvas.width !== img.width || canvas.height !== img.height) {
+            canvas.width = img.width;
+            canvas.height = img.height;
+          }
+          ctx.drawImage(img, 0, 0);
+        };
+        img.src = 'data:image/jpeg;base64,' + msg.data;
+
+        if (msg.metadata) {
+          deviceWidth = msg.metadata.deviceWidth;
+          deviceHeight = msg.metadata.deviceHeight;
+          updateInfo();
+        }
+      } else if (msg.type === 'status') {
+        if (msg.viewportWidth && msg.viewportHeight) {
+          deviceWidth = msg.viewportWidth;
+          deviceHeight = msg.viewportHeight;
+          updateInfo();
+        }
+      }
+    }
+
+    function sendInput(msg) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(msg));
+      }
+    }
+
+    // Get mouse position relative to canvas, scaled to device coordinates
+    function getMousePos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      return {
+        x: Math.round((e.clientX - rect.left) * scaleX),
+        y: Math.round((e.clientY - rect.top) * scaleY)
+      };
+    }
+
+    function buttonName(button) {
+      switch (button) {
+        case 0: return 'left';
+        case 1: return 'middle';
+        case 2: return 'right';
+        default: return 'left';
+      }
+    }
+
+    // Mouse events
+    canvas.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const pos = getMousePos(e);
+      sendInput({
+        type: 'input_mouse',
+        eventType: 'mousePressed',
+        x: pos.x,
+        y: pos.y,
+        button: buttonName(e.button)
+      });
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+      e.preventDefault();
+      const pos = getMousePos(e);
+      sendInput({
+        type: 'input_mouse',
+        eventType: 'mouseReleased',
+        x: pos.x,
+        y: pos.y,
+        button: buttonName(e.button)
+      });
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!connected) return;
+      const pos = getMousePos(e);
+      sendInput({
+        type: 'input_mouse',
+        eventType: 'mouseMoved',
+        x: pos.x,
+        y: pos.y
+      });
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const pos = getMousePos(e);
+      sendInput({
+        type: 'input_mouse',
+        eventType: 'mouseWheel',
+        x: pos.x,
+        y: pos.y,
+        deltaX: Math.round(e.deltaX),
+        deltaY: Math.round(e.deltaY)
+      });
+    }, { passive: false });
+
+    canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+    });
+
+    // Keyboard events
+    // For printable characters, use 'char' event (unicode) for reliable text input
+    // For non-printable keys (modifiers, arrows, function keys), use keyDown/keyUp (scancodes)
+    const nonPrintableKeys = new Set([
+      'Escape', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12',
+      'Tab', 'CapsLock', 'Shift', 'Control', 'Alt', 'Meta',
+      'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+      'Insert', 'Delete', 'Home', 'End', 'PageUp', 'PageDown',
+      'Enter', 'Backspace', 'NumLock', 'ScrollLock', 'Pause', 'PrintScreen'
+    ]);
+
+    canvas.addEventListener('keydown', (e) => {
+      e.preventDefault();
+
+      const isPrintable = e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey;
+
+      if (isPrintable) {
+        // For printable characters, send unicode char event
+        sendInput({
+          type: 'input_keyboard',
+          eventType: 'char',
+          text: e.key
+        });
+      } else {
+        // For non-printable keys, send scancode-based keyDown
+        sendInput({
+          type: 'input_keyboard',
+          eventType: 'keyDown',
+          key: e.key,
+          code: e.code
+        });
+      }
+    });
+
+    canvas.addEventListener('keyup', (e) => {
+      e.preventDefault();
+
+      const isPrintable = e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey;
+
+      // Only send keyUp for non-printable keys (char events include release)
+      if (!isPrintable) {
+        sendInput({
+          type: 'input_keyboard',
+          eventType: 'keyUp',
+          key: e.key,
+          code: e.code
+        });
+      }
+    });
+
+    // Fullscreen
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(e => {
+          console.error('Fullscreen failed:', e);
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    // Auto-connect on Enter in URL field
+    urlInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        toggleConnection();
+      }
+    });
+
+    // Check URL params for auto-connect
+    const params = new URLSearchParams(window.location.search);
+    const wsUrl = params.get('ws');
+    if (wsUrl) {
+      urlInput.value = wsUrl;
+      connect();
+    }
+  </script>
+</body>
+</html>

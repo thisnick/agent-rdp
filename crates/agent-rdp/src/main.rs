@@ -30,6 +30,11 @@ async fn main() {
 async fn run(cli: Cli) -> anyhow::Result<()> {
     use output::Output;
 
+    // Set stream port env var so daemon subprocess inherits it
+    if cli.stream_port > 0 {
+        std::env::set_var("AGENT_RDP_STREAM_PORT", cli.stream_port.to_string());
+    }
+
     let output = Output::new(cli.json);
 
     match cli.command {

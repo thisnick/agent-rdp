@@ -50,5 +50,9 @@ anyhow = { workspace = true }
 # Synchronization
 parking_lot = { workspace = true }
 
+# WebSocket streaming
+tokio-tungstenite = { workspace = true }
+futures-util = { workspace = true }
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true }
