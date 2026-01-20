@@ -205,14 +205,21 @@ impl SessionManager {
         let retry_delay = Duration::from_millis(100);
 
         for _ in 0..max_retries {
-            if socket_path.exists() {
+            // On Windows, we use TCP ports so socket_path.exists() doesn't apply.
+            // On Unix, we check if the socket file exists before trying to connect.
+            #[cfg(unix)]
+            let should_try = socket_path.exists();
+            #[cfg(windows)]
+            let should_try = true;
+
+            if should_try {
                 match IpcClient::connect(&socket_path).await {
                     Ok(client) => {
                         debug!("Connected to daemon");
                         return Ok(client);
                     }
                     Err(_) => {
-                        // Socket exists but connection failed, retry
+                        // Connection failed, retry
                     }
                 }
             }
@@ -239,9 +246,9 @@ impl SessionManager {
             for entry in entries.flatten() {
                 if entry.path().is_dir() {
                     if let Some(name) = entry.file_name().to_str() {
-                        // Verify this session has a socket file
-                        let socket_path = entry.path().join("socket");
-                        if socket_path.exists() {
+                        // Verify this session has a PID file (works on both Unix and Windows)
+                        let pid_path = entry.path().join("pid");
+                        if pid_path.exists() {
                             sessions.push(name.to_string());
                         }
                     }

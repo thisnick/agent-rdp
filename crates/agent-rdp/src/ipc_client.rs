@@ -42,8 +42,9 @@ impl IpcClient {
     pub async fn send(&mut self, request: &Request, timeout_ms: u64) -> anyhow::Result<Response> {
         let json = serde_json::to_string(request)? + "\n";
 
-        // Write request
+        // Write request and flush to ensure it's sent immediately
         self.stream.write_all(json.as_bytes()).await?;
+        self.stream.flush().await?;
 
         // Read response with timeout
         let response = timeout(

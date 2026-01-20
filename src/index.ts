@@ -31,7 +31,6 @@ import {
   ScreenshotResult,
   SessionInfo,
   MappedDrive,
-  Point,
   MouseClickOptions,
   MouseDragOptions,
   ScrollOptions,
@@ -40,7 +39,6 @@ import {
   ClipboardSetOptions,
   Request,
   Response,
-  ResponseData,
   RdpError,
 } from './types.js';
 

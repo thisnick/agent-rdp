@@ -225,6 +225,7 @@ async fn handle_client(
                 let resp = Response::error(ErrorCode::InvalidRequest, format!("Invalid request: {}", e));
                 let json = serde_json::to_string(&resp)? + "\n";
                 writer.write_all(json.as_bytes()).await?;
+                writer.flush().await?;
                 continue;
             }
         };
@@ -241,6 +242,7 @@ async fn handle_client(
 
         let json = serde_json::to_string(&response)? + "\n";
         writer.write_all(json.as_bytes()).await?;
+        writer.flush().await?;
 
         // Trigger daemon shutdown if this was a shutdown request
         if is_shutdown {

@@ -98,7 +98,7 @@ export class IpcClient {
       try {
         const response = JSON.parse(line) as Response;
         this.pendingResolve(response);
-      } catch (err) {
+      } catch (_err) {
         this.pendingReject?.(new RdpError('ipc_error', `Invalid JSON response: ${line}`));
       }
       this.pendingResolve = null;
