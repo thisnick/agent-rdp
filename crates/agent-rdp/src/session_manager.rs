@@ -201,7 +201,7 @@ impl SessionManager {
     /// Wait for the daemon to become ready.
     async fn wait_for_daemon(&self) -> anyhow::Result<IpcClient> {
         let socket_path = self.socket_path();
-        let max_retries = 50; // 5 seconds total
+        let max_retries = 600; // 60 seconds total
         let retry_delay = Duration::from_millis(100);
 
         for _ in 0..max_retries {

@@ -31,14 +31,8 @@ switch (arch()) {
 }
 
 const ext = os === 'win32' ? '.exe' : '';
-let binaryName = `agent-rdp-${os}-${architecture}${ext}`;
-let binaryPath = join(scriptDir, binaryName);
-
-// Fallback: Windows ARM64 can run x64 binaries via emulation
-if (!existsSync(binaryPath) && os === 'win32' && architecture === 'arm64') {
-  binaryName = `agent-rdp-win32-x64.exe`;
-  binaryPath = join(scriptDir, binaryName);
-}
+const binaryName = `agent-rdp-${os}-${architecture}${ext}`;
+const binaryPath = join(scriptDir, binaryName);
 
 if (!existsSync(binaryPath)) {
   console.error(`Error: No binary found for ${os}-${architecture}`);
