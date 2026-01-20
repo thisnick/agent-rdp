@@ -16,8 +16,8 @@
  * });
  *
  * const { base64 } = await rdp.screenshot();
- * await rdp.mouse.click(100, 200);
- * await rdp.keyboard.type('Hello World');
+ * await rdp.mouse.click({ x: 100, y: 200 });
+ * await rdp.keyboard.type({ text: 'Hello World' });
  * await rdp.disconnect();
  * ```
  */
@@ -31,6 +31,13 @@ import {
   ScreenshotResult,
   SessionInfo,
   MappedDrive,
+  Point,
+  MouseClickOptions,
+  MouseDragOptions,
+  ScrollOptions,
+  KeyboardTypeOptions,
+  KeyboardPressOptions,
+  ClipboardSetOptions,
   Request,
   Response,
   ResponseData,
@@ -56,34 +63,34 @@ export class MouseController {
   constructor(private rdp: RdpSession) {}
 
   /** Move cursor to position. */
-  async move(x: number, y: number): Promise<void> {
-    await this.rdp._send({ type: 'mouse', action: 'move', x, y });
+  async move(options: MouseClickOptions): Promise<void> {
+    await this.rdp._send({ type: 'mouse', action: 'move', x: options.x, y: options.y });
   }
 
   /** Left click at position. */
-  async click(x: number, y: number): Promise<void> {
-    await this.rdp._send({ type: 'mouse', action: 'click', x, y });
+  async click(options: MouseClickOptions): Promise<void> {
+    await this.rdp._send({ type: 'mouse', action: 'click', x: options.x, y: options.y });
   }
 
   /** Right click at position. */
-  async rightClick(x: number, y: number): Promise<void> {
-    await this.rdp._send({ type: 'mouse', action: 'right_click', x, y });
+  async rightClick(options: MouseClickOptions): Promise<void> {
+    await this.rdp._send({ type: 'mouse', action: 'right_click', x: options.x, y: options.y });
   }
 
   /** Double click at position. */
-  async doubleClick(x: number, y: number): Promise<void> {
-    await this.rdp._send({ type: 'mouse', action: 'double_click', x, y });
+  async doubleClick(options: MouseClickOptions): Promise<void> {
+    await this.rdp._send({ type: 'mouse', action: 'double_click', x: options.x, y: options.y });
   }
 
   /** Drag from one position to another. */
-  async drag(fromX: number, fromY: number, toX: number, toY: number): Promise<void> {
+  async drag(options: MouseDragOptions): Promise<void> {
     await this.rdp._send({
       type: 'mouse',
       action: 'drag',
-      from_x: fromX,
-      from_y: fromY,
-      to_x: toX,
-      to_y: toY,
+      from_x: options.from.x,
+      from_y: options.from.y,
+      to_x: options.to.x,
+      to_y: options.to.y,
     });
   }
 }
@@ -95,18 +102,13 @@ export class KeyboardController {
   constructor(private rdp: RdpSession) {}
 
   /** Type a text string (Unicode). */
-  async type(text: string): Promise<void> {
-    await this.rdp._send({ type: 'keyboard', action: 'type', text });
+  async type(options: KeyboardTypeOptions): Promise<void> {
+    await this.rdp._send({ type: 'keyboard', action: 'type', text: options.text });
   }
 
-  /** Press a key combination (e.g., 'ctrl+c', 'alt+tab'). */
-  async press(keys: string): Promise<void> {
-    await this.rdp._send({ type: 'keyboard', action: 'press', keys });
-  }
-
-  /** Press and release a single key. */
-  async key(key: string): Promise<void> {
-    await this.rdp._send({ type: 'keyboard', action: 'key', key });
+  /** Press a key combination (e.g., 'ctrl+c', 'alt+tab') or single key (e.g., 'enter'). */
+  async press(options: KeyboardPressOptions): Promise<void> {
+    await this.rdp._send({ type: 'keyboard', action: 'press', keys: options.keys });
   }
 }
 
@@ -117,23 +119,23 @@ export class ScrollController {
   constructor(private rdp: RdpSession) {}
 
   /** Scroll up. */
-  async up(amount = 3, x?: number, y?: number): Promise<void> {
-    await this.rdp._send({ type: 'scroll', direction: 'up', amount, x, y });
+  async up(options: ScrollOptions = {}): Promise<void> {
+    await this.rdp._send({ type: 'scroll', direction: 'up', amount: options.amount ?? 3, x: options.x, y: options.y });
   }
 
   /** Scroll down. */
-  async down(amount = 3, x?: number, y?: number): Promise<void> {
-    await this.rdp._send({ type: 'scroll', direction: 'down', amount, x, y });
+  async down(options: ScrollOptions = {}): Promise<void> {
+    await this.rdp._send({ type: 'scroll', direction: 'down', amount: options.amount ?? 3, x: options.x, y: options.y });
   }
 
   /** Scroll left. */
-  async left(amount = 3, x?: number, y?: number): Promise<void> {
-    await this.rdp._send({ type: 'scroll', direction: 'left', amount, x, y });
+  async left(options: ScrollOptions = {}): Promise<void> {
+    await this.rdp._send({ type: 'scroll', direction: 'left', amount: options.amount ?? 3, x: options.x, y: options.y });
   }
 
   /** Scroll right. */
-  async right(amount = 3, x?: number, y?: number): Promise<void> {
-    await this.rdp._send({ type: 'scroll', direction: 'right', amount, x, y });
+  async right(options: ScrollOptions = {}): Promise<void> {
+    await this.rdp._send({ type: 'scroll', direction: 'right', amount: options.amount ?? 3, x: options.x, y: options.y });
   }
 }
 
@@ -151,8 +153,8 @@ export class ClipboardController {
   }
 
   /** Set clipboard text. */
-  async set(text: string): Promise<void> {
-    await this.rdp._send({ type: 'clipboard', action: 'set', text });
+  async set(options: ClipboardSetOptions): Promise<void> {
+    await this.rdp._send({ type: 'clipboard', action: 'set', text: options.text });
   }
 }
 

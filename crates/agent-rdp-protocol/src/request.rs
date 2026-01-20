@@ -161,11 +161,8 @@ pub enum KeyboardRequest {
     /// Type a text string (Unicode).
     Type { text: String },
 
-    /// Press a key combination (e.g., "ctrl+c", "alt+tab").
+    /// Press a key combination (e.g., "ctrl+c", "alt+tab", or single key like "enter").
     Press { keys: String },
-
-    /// Press and release a single key.
-    Key { key: String },
 
     /// Press and hold a key.
     KeyDown { key: String },

@@ -91,10 +91,10 @@ agent-rdp keyboard press "ctrl+c"
 agent-rdp keyboard press "alt+tab"
 agent-rdp keyboard press "ctrl+shift+esc"
 
-# Press single keys
-agent-rdp keyboard key enter
-agent-rdp keyboard key escape
-agent-rdp keyboard key f5
+# Press single keys (use press command)
+agent-rdp keyboard press enter
+agent-rdp keyboard press escape
+agent-rdp keyboard press f5
 ```
 
 ### Scroll
@@ -156,6 +156,25 @@ agent-rdp --session work screenshot
 
 ```bash
 agent-rdp disconnect
+```
+
+### Web Viewer
+
+Open the web-based viewer to see the remote desktop in your browser:
+
+```bash
+# Open viewer (connects to default streaming port 9224)
+agent-rdp view
+
+# Specify a different port
+agent-rdp view --port 9224
+```
+
+The viewer requires WebSocket streaming to be enabled. Start a session with streaming:
+
+```bash
+agent-rdp --stream-port 9224 connect --host 192.168.1.100 -u Admin -p secret
+agent-rdp view
 ```
 
 ## JSON Output
@@ -224,23 +243,24 @@ await rdp.connect({
 const { base64, width, height } = await rdp.screenshot({ format: 'png' });
 
 // Mouse
-await rdp.mouse.click(100, 200);
-await rdp.mouse.rightClick(100, 200);
-await rdp.mouse.doubleClick(100, 200);
-await rdp.mouse.move(150, 250);
-await rdp.mouse.drag(100, 100, 500, 500);
+await rdp.mouse.click({ x: 100, y: 200 });
+await rdp.mouse.rightClick({ x: 100, y: 200 });
+await rdp.mouse.doubleClick({ x: 100, y: 200 });
+await rdp.mouse.move({ x: 150, y: 250 });
+await rdp.mouse.drag({ from: { x: 100, y: 100 }, to: { x: 500, y: 500 } });
 
 // Keyboard
-await rdp.keyboard.type('Hello World');
-await rdp.keyboard.press('ctrl+c');
-await rdp.keyboard.key('enter');
+await rdp.keyboard.type({ text: 'Hello World' });
+await rdp.keyboard.press({ keys: 'ctrl+c' });
+await rdp.keyboard.press({ keys: 'enter' });  // Single keys use press()
 
 // Scroll
-await rdp.scroll.up(3);
-await rdp.scroll.down(5);
+await rdp.scroll.up();                    // Default amount: 3
+await rdp.scroll.down({ amount: 5 });     // Custom amount
+await rdp.scroll.up({ x: 500, y: 300 });  // Scroll at position
 
 // Clipboard
-await rdp.clipboard.set('text to copy');
+await rdp.clipboard.set({ text: 'text to copy' });
 const text = await rdp.clipboard.get();
 
 // Drives

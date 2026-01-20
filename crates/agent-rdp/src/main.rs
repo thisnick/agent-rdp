@@ -68,5 +68,8 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         Commands::Wait { ms } => {
             cli::commands::wait::run(ms).await
         }
+        Commands::View(args) => {
+            cli::commands::view::run(args, &output).await
+        }
     }
 }

@@ -58,6 +58,54 @@ export interface MappedDrive {
   path: string;
 }
 
+// --- API Parameter Types ---
+
+/** A point representing x,y coordinates. */
+export interface Point {
+  x: number;
+  y: number;
+}
+
+/** Options for mouse click operations. */
+export interface MouseClickOptions {
+  x: number;
+  y: number;
+}
+
+/** Options for mouse drag operations. */
+export interface MouseDragOptions {
+  from: Point;
+  to: Point;
+}
+
+/** Options for scroll operations. */
+export interface ScrollOptions {
+  /** Amount to scroll (default: 3). */
+  amount?: number;
+  /** X coordinate (optional). */
+  x?: number;
+  /** Y coordinate (optional). */
+  y?: number;
+}
+
+/** Options for keyboard type operations. */
+export interface KeyboardTypeOptions {
+  /** Text to type. */
+  text: string;
+}
+
+/** Options for keyboard press operations. */
+export interface KeyboardPressOptions {
+  /** Key combination (e.g., 'ctrl+c') or single key (e.g., 'enter'). */
+  keys: string;
+}
+
+/** Options for clipboard set operations. */
+export interface ClipboardSetOptions {
+  /** Text to set. */
+  text: string;
+}
+
 // --- Request Types (for IPC) ---
 
 export interface ConnectRequest {
@@ -133,16 +181,7 @@ export interface KeyboardPressRequest {
   keys: string;
 }
 
-export interface KeyboardKeyRequest {
-  type: 'keyboard';
-  action: 'key';
-  key: string;
-}
-
-export type KeyboardRequest =
-  | KeyboardTypeRequest
-  | KeyboardPressRequest
-  | KeyboardKeyRequest;
+export type KeyboardRequest = KeyboardTypeRequest | KeyboardPressRequest;
 
 export interface ScrollRequest {
   type: 'scroll';

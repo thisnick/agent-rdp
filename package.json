@@ -1,6 +1,6 @@
 {
   "name": "agent-rdp",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "CLI tool for AI agents to control Windows Remote Desktop sessions",
   "repository": {
     "type": "git",
@@ -30,7 +30,7 @@
     "build": "cargo build --release && node scripts/copy-native.cjs",
     "build:all": "node scripts/build-all.cjs",
     "prepublishOnly": "npm run build:ts",
-    "example": "tsx examples/hello-world.ts"
+    "example": "tsx examples/typescript/hello-world.ts"
   },
   "keywords": [
     "rdp",
