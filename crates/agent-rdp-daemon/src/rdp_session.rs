@@ -147,7 +147,7 @@ impl RdpSession {
             performance_flags: PerformanceFlags::default(),
             enable_server_pointer: false,
             request_data: None,
-            autologon: false,
+            autologon: true,
             enable_audio_playback: false,
             desktop_scale_factor: 0,
             hardware_id: None,
