@@ -28,6 +28,9 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             binary: agent-rdp-win32-x64.exe
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            binary: agent-rdp-win32-arm64.exe
 
     runs-on: ${{ matrix.os }}
 
@@ -107,6 +110,7 @@ jobs:
           cp release/agent-rdp-linux-x64 bin/
           cp release/agent-rdp-linux-arm64 bin/
           cp release/agent-rdp-win32-x64.exe bin/
+          cp release/agent-rdp-win32-arm64.exe bin/
           chmod +x bin/agent-rdp-*
           ls -la bin/
 
