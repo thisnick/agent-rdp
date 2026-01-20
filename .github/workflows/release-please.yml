@@ -21,3 +21,124 @@ jobs:
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  build:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            binary: agent-rdp-darwin-arm64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            binary: agent-rdp-darwin-x64
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary: agent-rdp-linux-x64
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            binary: agent-rdp-linux-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: agent-rdp-win32-x64.exe
+            rustflags: "-C target-feature=+crt-static"
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            binary: agent-rdp-win32-arm64.exe
+            rustflags: "-C target-feature=+crt-static"
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Rename binary (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cp target/${{ matrix.target }}/release/agent-rdp ${{ matrix.binary }}
+          chmod +x ${{ matrix.binary }}
+
+      - name: Rename binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          copy target\${{ matrix.target }}\release\agent-rdp.exe ${{ matrix.binary }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.binary }}
+          path: ${{ matrix.binary }}
+
+  publish:
+    needs: [release-please, build]
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write  # Required for npm provenance
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          find artifacts -type f -exec cp {} release/ \;
+          ls -la release/
+
+      - name: Upload binaries to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ needs.release-please.outputs.tag_name }} release/* --clobber
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Update npm for OIDC support
+        run: npm install -g npm@latest
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Copy binaries to bin/
+        run: |
+          cp release/agent-rdp-darwin-arm64 bin/
+          cp release/agent-rdp-darwin-x64 bin/
+          cp release/agent-rdp-linux-x64 bin/
+          cp release/agent-rdp-win32-x64.exe bin/
+          cp release/agent-rdp-linux-arm64 bin/
+          cp release/agent-rdp-win32-arm64.exe bin/
+          chmod +x bin/agent-rdp-*
+          ls -la bin/
+
+      - name: Install dependencies
+        run: pnpm install --ignore-scripts
+
+      - name: Build TypeScript
+        run: pnpm run build:ts
+
+      - name: Publish to npm
+        run: npm publish --access public --provenance
