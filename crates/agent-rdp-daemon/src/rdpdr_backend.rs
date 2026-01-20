@@ -706,7 +706,13 @@ mod win {
                         // Wildcard query - list directory contents
                         let query_path = req_inner.path.replace('\\', "/");
                         let len = query_path.len();
-                        let dir_path = backend.file_base.join(&query_path[..len - 1]);
+                        // Strip the trailing * and any leading slashes
+                        let dir_path_str = query_path[..len - 1].trim_start_matches('/');
+                        let dir_path = if dir_path_str.is_empty() {
+                            backend.file_base.clone()
+                        } else {
+                            backend.file_base.join(dir_path_str)
+                        };
 
                         if let Ok(read_dir) = fs::read_dir(&dir_path) {
                             let mut iter = read_dir;
@@ -730,7 +736,12 @@ mod win {
                     } else {
                         // Specific file query
                         let query_path = req_inner.path.replace('\\', "/");
-                        let full_path = backend.file_base.join(&query_path);
+                        let query_path = query_path.trim_start_matches('/');
+                        let full_path = if query_path.is_empty() {
+                            backend.file_base.clone()
+                        } else {
+                            backend.file_base.join(query_path)
+                        };
                         find_file_path = Some(full_path);
                     }
 
@@ -804,8 +815,14 @@ mod win {
         let file_id = backend.file_id;
         backend.file_id += 1;
 
+        // Convert backslashes and strip leading slashes to prevent join from replacing base path
         let req_path = req_inner.path.replace('\\', "/");
-        let path = backend.file_base.join(&req_path);
+        let req_path = req_path.trim_start_matches('/');
+        let path = if req_path.is_empty() {
+            backend.file_base.clone()
+        } else {
+            backend.file_base.join(req_path)
+        };
 
         // First process directory
         match fs::metadata(&path) {
