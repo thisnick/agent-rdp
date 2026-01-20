@@ -17,7 +17,7 @@
     }
   },
   "bin": {
-    "agent-rdp": "./bin/agent-rdp"
+    "agent-rdp": "./bin/agent-rdp.js"
   },
   "files": [
     "bin",
