@@ -30,7 +30,9 @@
     "build": "cargo build --release && node scripts/copy-native.cjs",
     "build:all": "node scripts/build-all.cjs",
     "prepublishOnly": "npm run build:ts",
-    "example": "tsx examples/typescript/hello-world.ts"
+    "example": "tsx examples/typescript/hello-world.ts",
+    "lint": "eslint src examples",
+    "lint:fix": "eslint src examples --fix"
   },
   "keywords": [
     "rdp",
@@ -46,6 +48,9 @@
   "homepage": "https://github.com/thisnick/agent-rdp#readme",
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.53.1",
+    "@typescript-eslint/parser": "^8.53.1",
+    "eslint": "^9.39.2",
     "tsx": "^4.7.0",
     "typescript": "^5.3.0"
   }
