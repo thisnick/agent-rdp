@@ -59,15 +59,15 @@ agent-rdp keyboard press "ctrl+c"         # Key combination
 agent-rdp keyboard press "alt+tab"        # Switch windows
 agent-rdp keyboard press "ctrl+shift+esc" # Task manager
 agent-rdp keyboard press "win+r"          # Run dialog
-agent-rdp keyboard key enter              # Single key
-agent-rdp keyboard key escape
-agent-rdp keyboard key f5
+agent-rdp keyboard press enter            # Single key (use press, not key)
+agent-rdp keyboard press escape
+agent-rdp keyboard press f5
 ```
 
 ### Scroll
 ```bash
-agent-rdp scroll up 3                     # Scroll up 3 notches
-agent-rdp scroll down 5                   # Scroll down 5 notches
+agent-rdp scroll up --amount 3            # Scroll up 3 notches
+agent-rdp scroll down --amount 5          # Scroll down 5 notches
 agent-rdp scroll left
 agent-rdp scroll right
 ```
@@ -117,10 +117,10 @@ agent-rdp wait 3000                       # Wait for desktop
 agent-rdp keyboard press "win+r"          # Open Run dialog
 agent-rdp wait 1000
 agent-rdp keyboard type "powershell"
-agent-rdp keyboard key enter
+agent-rdp keyboard press enter
 agent-rdp wait 2000                       # Wait for PowerShell
 agent-rdp keyboard type "Get-Process"
-agent-rdp keyboard key enter
+agent-rdp keyboard press enter
 agent-rdp screenshot --output result.png
 agent-rdp disconnect
 ```
@@ -135,7 +135,7 @@ agent-rdp connect --host 192.168.1.100 -u Admin -p secret --drive /tmp/transfer:
 agent-rdp keyboard press "win+r"
 agent-rdp wait 500
 agent-rdp keyboard type "\\\\tsclient\\Transfer"
-agent-rdp keyboard key enter
+agent-rdp keyboard press enter
 ```
 
 ## Environment variables
@@ -153,6 +153,8 @@ agent-rdp connect --host 192.168.1.100    # Uses env vars for credentials
 # Enable streaming viewer on port 9224
 agent-rdp --stream-port 9224 connect --host 192.168.1.100 -u Admin -p secret
 
-# Open browser to view stream (requires separate viewer)
-# WebSocket at ws://localhost:9224 broadcasts JPEG frames
+# Open web viewer in browser
+agent-rdp view --port 9224
+
+# Or manually access WebSocket at ws://localhost:9224 (broadcasts JPEG frames)
 ```

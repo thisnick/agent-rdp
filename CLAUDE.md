@@ -92,3 +92,34 @@ Input sent as `FastPathInputEvent` (mouse via `MousePdu`, keyboard via scancode 
 | `AGENT_RDP_STREAM_PORT` | WebSocket streaming port (0 = disabled) |
 | `AGENT_RDP_STREAM_FPS` | Frame rate for streaming (default: 10) |
 | `AGENT_RDP_STREAM_QUALITY` | JPEG quality 0-100 (default: 80) |
+
+## Release Process
+
+This project uses [release-please](https://github.com/googleapis/release-please) for automated releases.
+
+### Conventional Commits
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) format for commit messages:
+
+```
+feat: add new feature        # Minor version bump, appears in changelog
+fix: fix a bug               # Patch version bump, appears in changelog
+perf: improve performance    # Patch version bump, appears in changelog
+docs: update documentation   # No version bump, appears in changelog
+refactor: restructure code   # No version bump, appears in changelog
+chore: maintenance task      # No version bump, hidden from changelog
+test: add tests              # No version bump, hidden from changelog
+ci: CI changes               # No version bump, hidden from changelog
+```
+
+### Release Workflow
+
+1. Push commits with conventional commit messages to `main`
+2. Release-please creates/updates a "Release PR" with:
+   - Version bump in `package.json` and `Cargo.toml` files
+   - Updated `CHANGELOG.md`
+3. Merge the Release PR when ready to publish
+4. Tag creation triggers the release workflow:
+   - Builds binaries for all platforms
+   - Creates GitHub release with binaries
+   - Publishes to npm with provenance (uses OIDC trusted publishers, no npm token needed)

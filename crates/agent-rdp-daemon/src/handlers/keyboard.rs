@@ -86,32 +86,6 @@ pub async fn handle(
             return Response::ok();
         }
 
-        KeyboardRequest::Key { key } => {
-            match key_to_scancode(&key) {
-                Some((scancode, extended)) => {
-                    debug!("Single key press: {} (scancode=0x{:02X}, extended={})", key, scancode, extended);
-                    // Send down
-                    let down_event = create_key_event_ext(scancode, extended, false);
-                    if let Err(e) = rdp.send_input(vec![down_event]).await {
-                        return Response::error(ErrorCode::InternalError, e.to_string());
-                    }
-                    sleep(Duration::from_millis(30)).await;
-                    // Send up
-                    let up_event = create_key_event_ext(scancode, extended, true);
-                    if let Err(e) = rdp.send_input(vec![up_event]).await {
-                        return Response::error(ErrorCode::InternalError, e.to_string());
-                    }
-                    return Response::ok();
-                }
-                None => {
-                    return Response::error(
-                        ErrorCode::InvalidRequest,
-                        format!("Unknown key: {}", key),
-                    );
-                }
-            }
-        }
-
         KeyboardRequest::KeyDown { key } => {
             match key_to_scancode(&key) {
                 Some((scancode, extended)) => {

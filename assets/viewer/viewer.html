@@ -83,6 +83,9 @@
     #status.connecting {
       background: #f39c12;
     }
+    #status.disconnected {
+      background: #95a5a6;
+    }
     #status.error {
       background: #e74c3c;
     }
@@ -100,8 +103,6 @@
       overflow: hidden;
     }
     #screen {
-      max-width: 100%;
-      max-height: 100%;
       background: #000;
       cursor: crosshair;
       image-rendering: auto;
@@ -120,7 +121,7 @@
     <input type="text" id="url" value="ws://localhost:9224" placeholder="ws://localhost:9224">
     <button id="connectBtn" onclick="toggleConnection()">Connect</button>
     <button id="fullscreenBtn" onclick="toggleFullscreen()">Fullscreen</button>
-    <span id="status">Disconnected</span>
+    <span id="status" class="disconnected">Disconnected</span>
     <span id="info"></span>
   </div>
   <div id="viewer">
@@ -132,6 +133,7 @@
     const connectBtn = document.getElementById('connectBtn');
     const statusSpan = document.getElementById('status');
     const infoSpan = document.getElementById('info');
+    const viewer = document.getElementById('viewer');
     const canvas = document.getElementById('screen');
     const ctx = canvas.getContext('2d');
 
@@ -152,6 +154,23 @@
         infoSpan.textContent = '';
       }
     }
+
+    // Scale canvas to fit within viewer container
+    function updateCanvasScale() {
+      if (canvas.width === 0 || canvas.height === 0) return;
+
+      const padding = 32; // 16px padding on each side
+      const maxW = viewer.clientWidth - padding;
+      const maxH = viewer.clientHeight - padding;
+
+      const scale = Math.min(1, maxW / canvas.width, maxH / canvas.height);
+
+      canvas.style.width = `${Math.round(canvas.width * scale)}px`;
+      canvas.style.height = `${Math.round(canvas.height * scale)}px`;
+    }
+
+    // Update scale on window resize
+    window.addEventListener('resize', updateCanvasScale);
 
     function toggleConnection() {
       if (connected) {
@@ -186,7 +205,7 @@
         connected = false;
         connectBtn.textContent = 'Connect';
         connectBtn.classList.remove('connected');
-        setStatus('Disconnected', '');
+        setStatus('Disconnected', 'disconnected');
         ws = null;
       };
 
@@ -214,9 +233,11 @@
       if (msg.type === 'frame') {
         const img = new Image();
         img.onload = () => {
-          if (canvas.width !== img.width || canvas.height !== img.height) {
+          const needsResize = canvas.width !== img.width || canvas.height !== img.height;
+          if (needsResize) {
             canvas.width = img.width;
             canvas.height = img.height;
+            updateCanvasScale();
           }
           ctx.drawImage(img, 0, 0);
         };
@@ -375,6 +396,9 @@
         document.exitFullscreen();
       }
     }
+
+    // Update scale when exiting fullscreen
+    document.addEventListener('fullscreenchange', updateCanvasScale);
 
     // Auto-connect on Enter in URL field
     urlInput.addEventListener('keypress', (e) => {

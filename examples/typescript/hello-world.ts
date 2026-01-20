@@ -8,7 +8,7 @@
  *   AGENT_RDP_HOST=192.168.1.100 AGENT_RDP_USERNAME=Admin AGENT_RDP_PASSWORD=secret npx tsx examples/hello-world.ts
  */
 
-import { RdpSession, DriveMapping } from '../src/index.js';
+import { RdpSession, DriveMapping } from '../../src/index.js';
 
 // Parse arguments
 function getArg(name: string, envVar?: string): string | undefined {
@@ -54,9 +54,9 @@ async function main() {
   console.log(`Connecting to ${host}...`);
 
   await rdp.connect({
-    host,
-    username,
-    password,
+    host: host!,
+    username: username!,
+    password: password!,
     width: 1280,
     height: 800,
     drives: driveMappings,
@@ -73,15 +73,15 @@ async function main() {
   console.log('Opening PowerShell via Win+R...');
 
   // Press Win+R to open Run dialog
-  await rdp.keyboard.press('win+r');
+  await rdp.keyboard.press({ keys: 'win+r' });
   await sleep(1000);
 
   // Type "powershell"
-  await rdp.keyboard.type('powershell');
+  await rdp.keyboard.type({ text: 'powershell' });
   await sleep(500);
 
   // Press Enter to open it
-  await rdp.keyboard.key('enter');
+  await rdp.keyboard.press({ keys: 'enter' });
   await sleep(2000);
 
   // Take a screenshot to see PowerShell
@@ -90,11 +90,11 @@ async function main() {
 
   // Type our command
   console.log('Typing echo hello world...');
-  await rdp.keyboard.type('echo hello world');
+  await rdp.keyboard.type({ text: 'echo hello world' });
   await sleep(500);
 
   // Press Enter to execute
-  await rdp.keyboard.key('enter');
+  await rdp.keyboard.press({ keys: 'enter' });
   await sleep(1000);
 
   // Take final screenshot

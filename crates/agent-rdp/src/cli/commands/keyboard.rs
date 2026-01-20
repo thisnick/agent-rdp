@@ -24,7 +24,6 @@ pub async fn run(
     let keyboard_request = match args.action {
         KeyboardAction::Type { text } => KeyboardRequest::Type { text },
         KeyboardAction::Press { keys } => KeyboardRequest::Press { keys },
-        KeyboardAction::Key { key } => KeyboardRequest::Key { key },
     };
 
     let request = Request::Keyboard(keyboard_request);

@@ -63,6 +63,17 @@ pub enum Commands {
         /// Milliseconds to wait
         ms: u64,
     },
+
+    /// Open the web viewer in a browser
+    View(ViewArgs),
+}
+
+/// View command arguments.
+#[derive(Parser)]
+pub struct ViewArgs {
+    /// WebSocket streaming port to connect to
+    #[arg(long, default_value = "9224")]
+    pub port: u16,
 }
 
 /// Connect command arguments.
@@ -190,16 +201,10 @@ pub enum KeyboardAction {
         text: String,
     },
 
-    /// Press a key combination (e.g., "ctrl+c", "alt+tab")
+    /// Press a key combination (e.g., "ctrl+c", "alt+tab") or single key (e.g., "enter")
     Press {
-        /// Key combination
+        /// Key combination or single key
         keys: String,
-    },
-
-    /// Press and release a single key
-    Key {
-        /// Key name
-        key: String,
     },
 }
 

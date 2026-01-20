@@ -9,4 +9,5 @@ pub mod mouse;
 pub mod screenshot;
 pub mod scroll;
 pub mod session;
+pub mod view;
 pub mod wait;
