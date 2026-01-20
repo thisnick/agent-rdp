@@ -1,5 +1,25 @@
 # Examples
 
+## typescript/
+
+TypeScript examples using the Node.js API.
+
+| Script | Description |
+|--------|-------------|
+| `hello-world.ts` | Connect to RDP, open PowerShell, type "echo hello world" |
+
+**Usage:**
+```bash
+# Run with arguments
+npx tsx examples/typescript/hello-world.ts --host 192.168.1.100 --username Admin --password secret
+
+# Or with environment variables
+AGENT_RDP_HOST=192.168.1.100 AGENT_RDP_USERNAME=Admin AGENT_RDP_PASSWORD=secret npx tsx examples/typescript/hello-world.ts
+
+# With drive mapping
+npx tsx examples/typescript/hello-world.ts --host 192.168.1.100 --username Admin --password secret --drive /tmp/share:Share
+```
+
 ## scripts/
 
 Shell script examples demonstrating common agent-rdp workflows.
