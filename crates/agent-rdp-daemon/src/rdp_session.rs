@@ -121,7 +121,7 @@ impl RdpSession {
                 password: config.password.clone(),
             },
             domain: config.domain.clone(),
-            enable_tls: false,
+            enable_tls: true,
             enable_credssp: true,
             keyboard_type: KeyboardType::IbmEnhanced,
             keyboard_subtype: 0,
