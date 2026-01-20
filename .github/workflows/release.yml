@@ -28,9 +28,11 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             binary: agent-rdp-win32-x64.exe
+            rustflags: "-C target-feature=+crt-static"
           - os: windows-11-arm
             target: aarch64-pc-windows-msvc
             binary: agent-rdp-win32-arm64.exe
+            rustflags: "-C target-feature=+crt-static"
 
     runs-on: ${{ matrix.os }}
 
@@ -43,6 +45,8 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Build
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Rename binary (Unix)

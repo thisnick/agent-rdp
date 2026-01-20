@@ -30,7 +30,8 @@ mod win {
     pub struct WinRdpdrBackend {
         file_id: u32,
         file_base: PathBuf,
-        file_map: HashMap<u32, File>,
+        /// File handles - None for directories (Windows can't open dirs as files)
+        file_map: HashMap<u32, Option<File>>,
         file_path_map: HashMap<u32, PathBuf>,
         file_dir_map: HashMap<u32, DirIterState>,
     }
@@ -225,14 +226,10 @@ mod win {
         backend: &mut WinRdpdrBackend,
         req_inner: ServerDriveQueryInformationRequest,
     ) -> PduResult<Vec<SvcMessage>> {
-        match backend.file_map.get(&req_inner.device_io_request.file_id) {
-            Some(file) => match file.metadata() {
+        // Use file_path_map for lookups since directories won't have file handles
+        match backend.file_path_map.get(&req_inner.device_io_request.file_id) {
+            Some(path) => match fs::metadata(path) {
                 Ok(meta) => {
-                    let path = backend
-                        .file_path_map
-                        .get(&req_inner.device_io_request.file_id)
-                        .cloned()
-                        .unwrap_or_default();
                     let name = path
                         .file_name()
                         .and_then(|n| n.to_str())
@@ -348,8 +345,9 @@ mod win {
         backend: &mut WinRdpdrBackend,
         req_inner: ServerDriveQueryVolumeInformationRequest,
     ) -> PduResult<Vec<SvcMessage>> {
-        match backend.file_map.get(&req_inner.device_io_request.file_id) {
-            Some(file) => {
+        // Use file_path_map for lookups since directories won't have file handles
+        match backend.file_path_map.get(&req_inner.device_io_request.file_id) {
+            Some(path) => {
                 // Get disk space information using Windows API
                 let (total_bytes, free_bytes) = match get_disk_space(&backend.file_base) {
                     Ok(info) => info,
@@ -417,8 +415,7 @@ mod win {
                 } else if FileSystemInformationClassLevel::FILE_FS_VOLUME_INFORMATION
                     == req_inner.fs_info_class_lvl
                 {
-                    let creation_time = file
-                        .metadata()
+                    let creation_time = fs::metadata(path)
                         .map(|m| windows_filetime_to_rdp(m.creation_time()))
                         .unwrap_or(0);
 
@@ -527,7 +524,7 @@ mod win {
                         }
                     }
                     FileInformationClass::EndOfFile(info) => {
-                        if let Some(file) = backend.file_map.get(&req_inner.device_io_request.file_id) {
+                        if let Some(Some(file)) = backend.file_map.get(&req_inner.device_io_request.file_id) {
                             if let Err(error) = file.set_len(info.end_of_file as u64) {
                                 warn!(%error, "Failed to set end of file");
                                 let res = RdpdrPdu::ClientDriveSetInformationResponse(
@@ -540,7 +537,7 @@ mod win {
                                 return Ok(vec![SvcMessage::from(res)]);
                             }
                         } else {
-                            warn!("no such file");
+                            warn!("no such file or is a directory");
                             let res = RdpdrPdu::ClientDriveSetInformationResponse(
                                 ClientDriveSetInformationResponse::new(&req_inner, NtStatus::NO_SUCH_FILE)
                                     .map_err(|e| encode_err!(e))?,
@@ -838,6 +835,15 @@ mod win {
                         });
                         return Ok(vec![SvcMessage::from(res)]);
                     }
+                    // Success case: opening existing directory
+                    debug!("Opening existing directory file_id:{}, path:{:?}", file_id, path);
+                    backend.file_map.insert(file_id, None); // No file handle for directories on Windows
+                    backend.file_path_map.insert(file_id, path.clone());
+                    return make_create_drive_resp(
+                        req_inner.device_io_request,
+                        req_inner.create_disposition,
+                        file_id,
+                    );
                 } else if req_inner.create_options.bits() & CreateOptions::FILE_DIRECTORY_FILE.bits()
                     != 0
                 {
@@ -858,21 +864,15 @@ mod win {
                         || req_inner.create_disposition == CreateDisposition::FILE_OPEN_IF)
                         && fs::create_dir_all(&path).is_ok()
                     {
-                        match File::open(&path) {
-                            Ok(file) => {
-                                debug!("create drive file_id:{},path:{:?}", file_id, path);
-                                backend.file_map.insert(file_id, file);
-                                backend.file_path_map.insert(file_id, path.clone());
-                                return make_create_drive_resp(
-                                    req_inner.device_io_request,
-                                    req_inner.create_disposition,
-                                    file_id,
-                                );
-                            }
-                            Err(error) => {
-                                warn!(%error, "Open file dir error");
-                            }
-                        }
+                        // Successfully created directory - don't try to File::open it
+                        debug!("Created directory file_id:{}, path:{:?}", file_id, path);
+                        backend.file_map.insert(file_id, None); // No file handle for directories
+                        backend.file_path_map.insert(file_id, path.clone());
+                        return make_create_drive_resp(
+                            req_inner.device_io_request,
+                            req_inner.create_disposition,
+                            file_id,
+                        );
                     }
                     let io_response =
                         DeviceIoResponse::new(req_inner.device_io_request, NtStatus::UNSUCCESSFUL);
@@ -912,7 +912,7 @@ mod win {
         match fs_opts.open(&path) {
             Ok(file) => {
                 debug!("create drive file_id:{},path:{:?}", file_id, path);
-                backend.file_map.insert(file_id, file);
+                backend.file_map.insert(file_id, Some(file));
                 backend.file_path_map.insert(file_id, path.clone());
                 make_create_drive_resp(
                     req_inner.device_io_request,
@@ -941,8 +941,8 @@ mod win {
         fx: impl Fn(&mut File, DeviceIoRequest) -> PduResult<Vec<SvcMessage>>,
     ) -> PduResult<Vec<SvcMessage>> {
         match backend.file_map.get_mut(&request.file_id) {
-            None => error_fx(request),
-            Some(file) => fx(file, request),
+            Some(Some(file)) => fx(file, request),
+            _ => error_fx(request), // None or Some(None) for directories
         }
     }
 
