@@ -81,7 +81,7 @@ impl SessionManager {
     #[cfg(windows)]
     fn process_exists(pid: u32) -> bool {
         use std::ptr;
-        use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+        use windows_sys::Win32::Foundation::CloseHandle;
         use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
 
         unsafe {
