@@ -58,3 +58,12 @@ jobs:
 
       - name: TypeScript check
         run: pnpm run build:ts
+
+  lint-powershell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint PowerShell scripts
+        shell: pwsh
+        run: ./scripts/lint-ps1.ps1

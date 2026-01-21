@@ -12,8 +12,14 @@ use tracing::{debug, info, warn};
 use super::{AutomationState, FileIpc};
 use crate::rdp_session::RdpSession;
 
-/// Embedded PowerShell agent script.
+/// Embedded PowerShell agent script (main entry point).
 const AGENT_SCRIPT: &str = include_str!("scripts/agent.ps1");
+
+/// Embedded PowerShell library files.
+const LIB_TYPES: &str = include_str!("scripts/lib/types.ps1");
+const LIB_SNAPSHOT: &str = include_str!("scripts/lib/snapshot.ps1");
+const LIB_SELECTORS: &str = include_str!("scripts/lib/selectors.ps1");
+const LIB_ACTIONS: &str = include_str!("scripts/lib/actions.ps1");
 
 /// Automation bootstrap handler.
 pub struct AutomationBootstrap {
@@ -35,13 +41,22 @@ impl AutomationBootstrap {
         let automation_dir = &state.automation_dir;
         tokio::fs::create_dir_all(automation_dir).await?;
         tokio::fs::create_dir_all(automation_dir.join("scripts")).await?;
+        tokio::fs::create_dir_all(automation_dir.join("scripts/lib")).await?;
         tokio::fs::create_dir_all(automation_dir.join("requests")).await?;
         tokio::fs::create_dir_all(automation_dir.join("responses")).await?;
 
-        // Write the PowerShell agent script
+        // Write the PowerShell agent script (main entry point)
         let script_path = state.script_path();
         tokio::fs::write(&script_path, AGENT_SCRIPT).await?;
         debug!("Wrote automation agent script to {:?}", script_path);
+
+        // Write the PowerShell library files
+        let lib_dir = automation_dir.join("scripts/lib");
+        tokio::fs::write(lib_dir.join("types.ps1"), LIB_TYPES).await?;
+        tokio::fs::write(lib_dir.join("snapshot.ps1"), LIB_SNAPSHOT).await?;
+        tokio::fs::write(lib_dir.join("selectors.ps1"), LIB_SELECTORS).await?;
+        tokio::fs::write(lib_dir.join("actions.ps1"), LIB_ACTIONS).await?;
+        debug!("Wrote automation library files to {:?}", lib_dir);
 
         // Initialize file IPC
         let ipc = FileIpc::new(automation_dir.clone());
@@ -205,6 +220,13 @@ mod tests {
         assert!(state.script_path().exists());
         assert!(state.requests_dir().exists());
         assert!(state.responses_dir().exists());
+
+        // Verify library files are created
+        let lib_dir = state.automation_dir.join("scripts/lib");
+        assert!(lib_dir.join("types.ps1").exists());
+        assert!(lib_dir.join("snapshot.ps1").exists());
+        assert!(lib_dir.join("selectors.ps1").exists());
+        assert!(lib_dir.join("actions.ps1").exists());
     }
 
     #[test]

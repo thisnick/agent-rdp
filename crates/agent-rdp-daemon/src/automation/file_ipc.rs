@@ -229,6 +229,7 @@ mod tests {
             compact: false,
             max_depth: 10,
             selector: None,
+            focused: false,
         };
 
         let (command, params) = ipc.serialize_request(&request).unwrap();

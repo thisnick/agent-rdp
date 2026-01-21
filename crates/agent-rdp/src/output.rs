@@ -168,9 +168,9 @@ impl Output {
         // Add name if present
         if let Some(ref name) = element.name {
             if !name.is_empty() {
-                // Truncate long names
-                let display_name = if name.len() > 40 {
-                    format!("{}...", &name[..37])
+                // Truncate long names (use chars to handle Unicode correctly)
+                let display_name = if name.chars().count() > 40 {
+                    format!("{}...", name.chars().take(37).collect::<String>())
                 } else {
                     name.clone()
                 };
@@ -200,8 +200,9 @@ impl Output {
 
         if let Some(ref value) = element.value {
             if !value.is_empty() {
-                let display_value = if value.len() > 30 {
-                    format!("{}...", &value[..27])
+                // Use chars to handle Unicode correctly
+                let display_value = if value.chars().count() > 30 {
+                    format!("{}...", value.chars().take(27).collect::<String>())
                 } else {
                     value.clone()
                 };

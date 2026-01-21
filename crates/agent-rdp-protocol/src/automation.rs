@@ -342,8 +342,9 @@ pub struct AutomationHandshake {
     pub version: String,
     /// Agent process ID.
     pub agent_pid: u32,
-    /// Start timestamp.
-    pub started_at: String,
+    /// Start timestamp (optional for backwards compatibility).
+    #[serde(default)]
+    pub started_at: Option<String>,
     /// Supported capabilities.
     pub capabilities: Vec<String>,
     /// Whether the agent is ready.
@@ -398,6 +399,7 @@ mod tests {
             compact: false,
             max_depth: 10,
             selector: None,
+            focused: false,
         };
 
         let json = serde_json::to_string(&req).unwrap();
