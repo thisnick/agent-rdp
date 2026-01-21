@@ -116,7 +116,7 @@ agent-rdp scroll right
 
 ### Locate (OCR)
 
-Find text on screen using OCR. Useful when UI Automation can't access certain elements (WebView content, some dialogs).
+Find text on screen using OCR (powered by [ocrs](https://github.com/robertknight/ocrs)). Useful when UI Automation can't access certain elements (WebView content, some dialogs).
 
 ```bash
 # Find lines containing text
