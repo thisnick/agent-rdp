@@ -20,7 +20,7 @@ use ironrdp::session::image::DecodedImage;
 use ironrdp::session::{ActiveStage, ActiveStageOutput};
 use ironrdp_rdpdr::Rdpdr;
 
-use crate::rdpdr_backend::MultiDriveBackend;
+use crate::rdpdr::MultiDriveBackend;
 use ironrdp_rdpsnd::client::{NoopRdpsndBackend, Rdpsnd};
 use ironrdp_tokio::{FramedWrite, TokioFramed};
 use tokio::net::TcpStream;
