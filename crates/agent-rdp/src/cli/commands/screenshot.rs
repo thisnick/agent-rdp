@@ -43,31 +43,23 @@ pub async fn run(
         std::process::exit(1);
     }
 
-    // Handle the screenshot data
-    if let Some(ResponseData::Screenshot { width, height, format: fmt, base64 }) = response.data {
-        if args.base64 {
-            // Output base64 to stdout
-            if output.is_json() {
-                output.print_response(&agent_rdp_protocol::Response::success(
-                    ResponseData::Screenshot { width, height, format: fmt, base64 }
-                ));
-            } else {
-                println!("{}", base64);
-            }
+    // Handle the screenshot data - save to file
+    if let Some(ResponseData::Screenshot { width, height, base64, .. }) = response.data {
+        let image_data = base64::engine::general_purpose::STANDARD.decode(&base64)?;
+
+        let path = Path::new(&args.output);
+        let mut file = File::create(path)?;
+        file.write_all(&image_data)?;
+
+        if output.is_json() {
+            println!(
+                r#"{{"success":true,"data":{{"type":"screenshot","path":"{}","width":{},"height":{}}}}}"#,
+                path.display(),
+                width,
+                height
+            );
         } else {
-            // Save to file
-            let image_data = base64::engine::general_purpose::STANDARD.decode(&base64)?;
-
-            let path = Path::new(&args.output);
-            let mut file = File::create(path)?;
-            file.write_all(&image_data)?;
-
-            if output.is_json() {
-                println!(r#"{{"success":true,"data":{{"type":"screenshot","path":"{}","width":{},"height":{}}}}}"#,
-                    path.display(), width, height);
-            } else {
-                println!("Screenshot saved to {} ({}x{})", path.display(), width, height);
-            }
+            println!("Screenshot saved to {} ({}x{})", path.display(), width, height);
         }
     }
 

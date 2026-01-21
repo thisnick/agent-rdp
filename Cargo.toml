@@ -67,6 +67,7 @@ proptest = "1"
 glob = "0.3"
 libc = "0.2"
 parking_lot = "0.12"
+uuid = { version = "1", features = ["v4"] }
 
 # WebSocket
 tokio-tungstenite = "0.24"

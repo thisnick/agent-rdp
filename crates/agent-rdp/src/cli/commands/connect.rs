@@ -14,6 +14,7 @@ pub async fn run(
     args: ConnectArgs,
     output: &Output,
     timeout_ms: u64,
+    stream_port: u16,
 ) -> anyhow::Result<()> {
     // Get password from args, env, or stdin
     let password = get_password(&args, output)?;
@@ -33,6 +34,9 @@ pub async fn run(
         width: args.width,
         height: args.height,
         drives,
+        enable_win_automation: args.enable_win_automation,
+        stream_port,
+        ..Default::default()
     });
 
     let response = client.send(&request, timeout_ms).await?;

@@ -32,7 +32,8 @@
     "prepublishOnly": "npm run build:ts",
     "example": "tsx examples/typescript/hello-world.ts",
     "lint": "eslint src examples",
-    "lint:fix": "eslint src examples --fix"
+    "lint:fix": "eslint src examples --fix",
+    "lint:ps1": "pwsh -NoProfile -File scripts/lint-ps1.ps1"
   },
   "keywords": [
     "rdp",

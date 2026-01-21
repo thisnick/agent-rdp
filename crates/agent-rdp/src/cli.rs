@@ -55,6 +55,9 @@ pub enum Commands {
     /// Drive mapping operations
     Drive(DriveArgs),
 
+    /// Windows UI Automation operations
+    Automate(AutomateArgs),
+
     /// Session management
     Session(SessionArgs),
 
@@ -114,6 +117,10 @@ pub struct ConnectArgs {
     /// Map local directories as drives (format: /path:DriveName, can be specified multiple times)
     #[arg(long = "drive", value_name = "PATH:NAME")]
     pub drives: Vec<String>,
+
+    /// Enable Windows UI Automation (requires automation agent on remote host)
+    #[arg(long)]
+    pub enable_win_automation: bool,
 }
 
 /// Screenshot command arguments.
@@ -122,10 +129,6 @@ pub struct ScreenshotArgs {
     /// Save to file path
     #[arg(long, short = 'o', default_value = "./screenshot.png")]
     pub output: String,
-
-    /// Output base64 to stdout instead of file
-    #[arg(long)]
-    pub base64: bool,
 
     /// Image format
     #[arg(long, default_value = "png")]
@@ -305,7 +308,177 @@ pub enum SessionAction {
     /// Get current session info
     Info,
 
-    /// Run as daemon (internal use)
-    #[command(hide = true)]
+    /// Run as background daemon for this session (starts automatically on connect)
     Daemon,
+}
+
+/// Automate command arguments.
+#[derive(Parser)]
+pub struct AutomateArgs {
+    #[command(subcommand)]
+    pub action: AutomateAction,
+}
+
+#[derive(Subcommand)]
+pub enum AutomateAction {
+    /// Take a snapshot of the accessibility tree
+    Snapshot {
+        /// Filter to interactive elements only (buttons, inputs, focusable)
+        #[arg(short = 'i', long)]
+        interactive: bool,
+
+        /// Compact mode - remove empty structural elements
+        #[arg(short = 'c', long)]
+        compact: bool,
+
+        /// Maximum tree depth (default: 10)
+        #[arg(short = 'd', long)]
+        depth: Option<u32>,
+
+        /// Scope to a specific element (window, panel, etc.) via selector
+        #[arg(short = 's', long)]
+        selector: Option<String>,
+
+        /// Start from the currently focused element
+        #[arg(short = 'f', long)]
+        focused: bool,
+    },
+
+    /// Get element properties
+    Get {
+        /// Element selector
+        selector: String,
+
+        /// Property to retrieve (name, value, states, bounds, or all)
+        #[arg(long)]
+        property: Option<String>,
+    },
+
+    /// Set focus to an element
+    Focus {
+        /// Element selector
+        selector: String,
+    },
+
+    /// Click an element
+    Click {
+        /// Element selector
+        selector: String,
+
+        /// Mouse button (left, right, middle)
+        #[arg(long)]
+        button: Option<String>,
+
+        /// Double-click instead of single click
+        #[arg(long)]
+        double: bool,
+    },
+
+    /// Double-click an element
+    DoubleClick {
+        /// Element selector
+        selector: String,
+    },
+
+    /// Right-click an element
+    RightClick {
+        /// Element selector
+        selector: String,
+    },
+
+    /// Clear and fill text in an element
+    Fill {
+        /// Element selector
+        selector: String,
+
+        /// Text to fill
+        text: String,
+    },
+
+    /// Clear text from an element
+    Clear {
+        /// Element selector
+        selector: String,
+    },
+
+    /// Select an item in a ComboBox or ListBox
+    Select {
+        /// Element selector
+        selector: String,
+
+        /// Item to select
+        item: String,
+    },
+
+    /// Check or uncheck a CheckBox or RadioButton
+    Check {
+        /// Element selector
+        selector: String,
+
+        /// Uncheck instead of check
+        #[arg(long)]
+        uncheck: bool,
+    },
+
+    /// Scroll an element
+    Scroll {
+        /// Element selector
+        selector: String,
+
+        /// Scroll direction (up, down, left, right)
+        #[arg(long)]
+        direction: Option<String>,
+
+        /// Scroll amount
+        #[arg(long)]
+        amount: Option<i32>,
+
+        /// Child selector to scroll into view
+        #[arg(long)]
+        to_child: Option<String>,
+    },
+
+    /// Window operations
+    Window {
+        /// Action: list, focus, maximize, minimize, restore, close
+        action: String,
+
+        /// Window selector (optional)
+        selector: Option<String>,
+    },
+
+    /// Run a PowerShell command
+    Run {
+        /// Command to run
+        command: String,
+
+        /// Command arguments
+        #[arg(trailing_var_arg = true)]
+        args: Vec<String>,
+
+        /// Wait for command to complete
+        #[arg(long)]
+        wait: bool,
+
+        /// Run with hidden window
+        #[arg(long)]
+        hidden: bool,
+    },
+
+    /// Wait for an element to reach a state
+    WaitFor {
+        /// Element selector
+        selector: String,
+
+        /// Timeout in milliseconds
+        #[arg(long)]
+        timeout: Option<u64>,
+
+        /// State to wait for (visible, enabled, gone)
+        #[arg(long)]
+        state: Option<String>,
+    },
+
+    /// Get automation agent status
+    Status,
 }

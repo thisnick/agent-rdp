@@ -8,6 +8,9 @@ use agent_rdp_protocol::{Request, Response};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::time::timeout;
 
+/// Default connect timeout in seconds.
+const CONNECT_TIMEOUT_SECS: u64 = 15;
+
 /// IPC client for daemon communication.
 pub struct IpcClient {
     #[cfg(unix)]
@@ -17,10 +20,18 @@ pub struct IpcClient {
 }
 
 impl IpcClient {
-    /// Connect to the daemon for the given session.
+    /// Connect to the daemon for the given session with a timeout.
     #[cfg(unix)]
     pub async fn connect(socket_path: &Path) -> io::Result<Self> {
-        let stream = tokio::net::UnixStream::connect(socket_path).await?;
+        let connect_future = tokio::net::UnixStream::connect(socket_path);
+        let stream = timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS), connect_future)
+            .await
+            .map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    format!("Connection to daemon timed out after {}s", CONNECT_TIMEOUT_SECS),
+                )
+            })??;
         Ok(Self { stream })
     }
 
@@ -34,7 +45,15 @@ impl IpcClient {
 
         let port = agent_rdp_daemon::get_session_port(session);
         let addr = format!("127.0.0.1:{}", port);
-        let stream = tokio::net::TcpStream::connect(&addr).await?;
+        let connect_future = tokio::net::TcpStream::connect(&addr);
+        let stream = timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS), connect_future)
+            .await
+            .map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    format!("Connection to daemon timed out after {}s", CONNECT_TIMEOUT_SECS),
+                )
+            })??;
         Ok(Self { stream })
     }
 

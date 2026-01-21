@@ -4,7 +4,8 @@
     "rustup@latest",
     "direnv@latest",
     "nodejs@latest",
-    "pnpm@latest"
+    "pnpm@latest",
+    "powershell@latest"
   ],
   "shell": {
     "init_hook": [

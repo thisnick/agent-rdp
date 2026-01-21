@@ -1,5 +1,8 @@
 //! Response types for daemon to CLI communication.
 
+use crate::automation::{
+    AccessibilitySnapshot, AutomationStatus, ElementValue, RunResult, WindowInfo,
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -102,6 +105,24 @@ pub enum ResponseData {
 
     /// Pong response for ping.
     Pong,
+
+    /// Accessibility tree snapshot.
+    Snapshot(AccessibilitySnapshot),
+
+    /// Element value/properties.
+    Element(ElementValue),
+
+    /// Window list.
+    WindowList {
+        /// List of windows.
+        windows: Vec<WindowInfo>,
+    },
+
+    /// Automation agent status.
+    AutomationStatus(AutomationStatus),
+
+    /// Command run result.
+    RunResult(RunResult),
 }
 
 /// Session information.
@@ -231,6 +252,26 @@ pub enum ErrorCode {
     /// Drive mapping error.
     #[error("drive error")]
     DriveError,
+
+    /// Automation agent not running.
+    #[error("automation not enabled")]
+    AutomationNotEnabled,
+
+    /// Automation agent error.
+    #[error("automation error")]
+    AutomationError,
+
+    /// Element not found.
+    #[error("element not found")]
+    ElementNotFound,
+
+    /// Stale element reference.
+    #[error("stale reference")]
+    StaleRef,
+
+    /// Automation command failed.
+    #[error("command failed")]
+    CommandFailed,
 }
 
 #[cfg(test)]

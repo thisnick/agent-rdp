@@ -3,6 +3,7 @@
 //! This crate implements the background daemon that maintains RDP connections
 //! and handles commands from CLI instances via IPC.
 
+pub mod automation;
 pub mod daemon;
 pub mod handlers;
 pub mod ipc_server;
@@ -11,7 +12,7 @@ pub mod rdpdr_backend;
 pub mod ws_input;
 pub mod ws_server;
 
-pub use daemon::Daemon;
+pub use daemon::{Daemon, SharedWsHandle};
 pub use ipc_server::IpcServer;
 pub use rdp_session::RdpSession;
 

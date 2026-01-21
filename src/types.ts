@@ -13,6 +13,8 @@ export interface ConnectOptions {
   width?: number;
   height?: number;
   drives?: DriveMapping[];
+  /** Enable Windows UI Automation. */
+  enableWinAutomation?: boolean;
 }
 
 export interface DriveMapping {
@@ -118,6 +120,7 @@ export interface ConnectRequest {
   width: number;
   height: number;
   drives: DriveMapping[];
+  enable_win_automation?: boolean;
 }
 
 export interface ScreenshotRequest {
@@ -221,6 +224,14 @@ export interface PingRequest {
   type: 'ping';
 }
 
+// --- Automation Request Types ---
+
+export interface AutomateRequest {
+  type: 'automate';
+  action: string;
+  [key: string]: unknown;
+}
+
 export type Request =
   | ConnectRequest
   | ScreenshotRequest
@@ -231,7 +242,8 @@ export type Request =
   | DriveListRequest
   | DisconnectRequest
   | SessionInfoRequest
-  | PingRequest;
+  | PingRequest
+  | AutomateRequest;
 
 // --- Response Types ---
 
@@ -248,7 +260,12 @@ export type ErrorCode =
   | 'ipc_error'
   | 'daemon_not_running'
   | 'clipboard_error'
-  | 'drive_error';
+  | 'drive_error'
+  | 'automation_not_enabled'
+  | 'automation_error'
+  | 'element_not_found'
+  | 'stale_ref'
+  | 'command_failed';
 
 export interface ErrorInfo {
   code: ErrorCode;
@@ -312,6 +329,68 @@ export interface Response {
   success: boolean;
   data?: ResponseData;
   error?: ErrorInfo;
+}
+
+// --- Automation Types ---
+
+export interface AutomationElementBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface AutomationElement {
+  ref?: number;
+  role: string;
+  name?: string;
+  automation_id?: string;
+  class_name?: string;
+  bounds?: AutomationElementBounds;
+  states?: string[];
+  value?: string;
+  patterns?: string[];
+  children?: AutomationElement[];
+}
+
+export interface AutomationSnapshot {
+  type: 'snapshot';
+  snapshot_id: string;
+  ref_count: number;
+  root: AutomationElement;
+}
+
+export interface AutomationElementValue {
+  type: 'element';
+  name?: string;
+  value?: string;
+  states?: string[];
+  bounds?: AutomationElementBounds;
+}
+
+export interface AutomationWindowInfo {
+  title: string;
+  process_name?: string;
+  process_id?: number;
+  bounds?: AutomationElementBounds;
+  minimized?: boolean;
+  maximized?: boolean;
+}
+
+export interface AutomationStatus {
+  type: 'automation_status';
+  agent_running: boolean;
+  agent_pid?: number;
+  capabilities?: string[];
+  version?: string;
+}
+
+export interface AutomationRunResult {
+  type: 'run_result';
+  exit_code?: number;
+  stdout?: string;
+  stderr?: string;
+  pid?: number;
 }
 
 // --- Error Class ---

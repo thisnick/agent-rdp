@@ -24,6 +24,7 @@
 
 import { IpcClient } from './client.js';
 import { DaemonManager } from './daemon.js';
+import { AutomationController } from './automation.js';
 import {
   ConnectOptions,
   ConnectResult,
@@ -44,6 +45,7 @@ import {
 
 // Re-export types
 export * from './types.js';
+export { AutomationController } from './automation.js';
 
 export interface RdpSessionOptions {
   /** Session name (default: 'default') */
@@ -184,6 +186,8 @@ export class RdpSession {
   readonly clipboard: ClipboardController;
   /** Drive controller. */
   readonly drives: DriveController;
+  /** Automation controller for Windows UI Automation. */
+  readonly automation: AutomationController;
 
   private session: string;
   private timeout: number;
@@ -202,10 +206,22 @@ export class RdpSession {
     this.scroll = new ScrollController(this);
     this.clipboard = new ClipboardController(this);
     this.drives = new DriveController(this);
+    this.automation = new AutomationController(this);
   }
 
   /**
    * Connect to an RDP server.
+   *
+   * @param options Connection options
+   * @param options.host Server hostname or IP
+   * @param options.port Server port (default: 3389)
+   * @param options.username Username for authentication
+   * @param options.password Password for authentication
+   * @param options.domain Optional domain
+   * @param options.width Desktop width (default: 1280)
+   * @param options.height Desktop height (default: 800)
+   * @param options.drives Drives to map
+   * @param options.enableWinAutomation Enable Windows UI Automation
    */
   async connect(options: ConnectOptions): Promise<ConnectResult> {
     // Ensure daemon is running and connect
@@ -221,6 +237,7 @@ export class RdpSession {
       width: options.width ?? 1280,
       height: options.height ?? 800,
       drives: options.drives ?? [],
+      enable_win_automation: options.enableWinAutomation,
     };
 
     const response = await this._send(request);
