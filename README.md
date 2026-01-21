@@ -171,7 +171,9 @@ On the remote Windows machine, mapped drives appear in File Explorer as network 
 
 ### UI Automation
 
-Enable Windows UI Automation to interact with applications programmatically:
+Interact with Windows applications programmatically via the Windows UI Automation API. When enabled, a PowerShell agent is injected into the remote session that captures the accessibility tree and performs actions. Communication between the CLI and the agent uses a mapped drive as an IPC channel.
+
+For detailed documentation, see [docs/AUTOMATION.md](docs/AUTOMATION.md).
 
 ```bash
 # Connect with automation enabled
@@ -216,8 +218,6 @@ agent-rdp automate run "Get-Process" --wait
     - MenuItem "File" [ref=e3]
   - Edit "Text Editor" [ref=e5, value="Hello"]
 ```
-
-For detailed documentation on automation, see [docs/AUTOMATION.md](docs/AUTOMATION.md).
 
 ### Session Management
 
@@ -321,6 +321,7 @@ await rdp.connect({
   width: 1280,
   height: 800,
   drives: [{ path: '/tmp/share', name: 'Share' }],
+  enableWinAutomation: true,  // Enable UI Automation
 });
 
 // Screenshot
@@ -355,6 +356,18 @@ if (matches.length > 0) {
 
 // Get all text on screen
 const allText = await rdp.locateAll();
+
+// Automation (requires --enable-win-automation at connect)
+const snapshot = await rdp.automation.snapshot({ interactive: true });
+await rdp.automation.click('@e5');           // Click by ref from snapshot
+await rdp.automation.fill('#input', 'text'); // Fill by automation ID
+await rdp.automation.run('notepad.exe');     // Run command
+await rdp.automation.waitFor('#SaveButton', { timeout: 5000 });
+
+// Window management
+const windows = await rdp.automation.listWindows();
+await rdp.automation.focusWindow('~*Notepad*');
+await rdp.automation.maximizeWindow();
 
 // Drives
 const drives = await rdp.drives.list();
