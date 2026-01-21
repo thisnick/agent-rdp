@@ -1,6 +1,7 @@
 //! File-based IPC for communication with PowerShell automation agent.
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
 use agent_rdp_protocol::{
@@ -10,6 +11,9 @@ use tokio::fs;
 use tokio::time::sleep;
 use tracing::{debug, error, trace, warn};
 use uuid::Uuid;
+
+/// Number of consecutive failures before suggesting reconnection.
+const CONSECUTIVE_FAILURE_THRESHOLD: u32 = 3;
 
 /// File-based IPC client for communicating with the PowerShell agent.
 #[derive(Debug)]
@@ -22,6 +26,8 @@ pub struct FileIpc {
     responses_dir: PathBuf,
     /// Timeout for waiting on responses.
     timeout: Duration,
+    /// Count of consecutive failures (for detecting dead channel).
+    consecutive_failures: AtomicU32,
 }
 
 impl FileIpc {
@@ -35,7 +41,23 @@ impl FileIpc {
             requests_dir,
             responses_dir,
             timeout: Duration::from_secs(30),
+            consecutive_failures: AtomicU32::new(0),
         }
+    }
+
+    /// Get the number of consecutive failures.
+    pub fn consecutive_failures(&self) -> u32 {
+        self.consecutive_failures.load(Ordering::Relaxed)
+    }
+
+    /// Reset the failure counter (call after successful request).
+    fn reset_failures(&self) {
+        self.consecutive_failures.store(0, Ordering::Relaxed);
+    }
+
+    /// Increment the failure counter and return the new count.
+    fn increment_failures(&self) -> u32 {
+        self.consecutive_failures.fetch_add(1, Ordering::Relaxed) + 1
     }
 
     /// Initialize the IPC directories.
@@ -118,7 +140,31 @@ impl FileIpc {
         // Wait for response
         // NOTE: Consumer deletes - PowerShell deletes request after reading,
         // Rust deletes response after reading
-        let response = self.wait_for_response(&request_id).await?;
+        let response = match self.wait_for_response(&request_id, &request_path).await {
+            Ok(resp) => {
+                // Success - reset failure counter
+                self.reset_failures();
+                resp
+            }
+            Err(e) => {
+                // Failure - increment counter and add context
+                let failures = self.increment_failures();
+                if failures >= CONSECUTIVE_FAILURE_THRESHOLD {
+                    error!(
+                        "Automation request failed {} consecutive times. \
+                        The automation channel may be dead. Consider reconnecting with --enable-win-automation.",
+                        failures
+                    );
+                    anyhow::bail!(
+                        "Automation failed ({} consecutive failures). \
+                        The RDP automation channel appears to be dead. \
+                        Please disconnect and reconnect with --enable-win-automation to restore automation.",
+                        failures
+                    );
+                }
+                return Err(e);
+            }
+        };
 
         if response.success {
             Ok(response.data.unwrap_or(serde_json::Value::Null))
@@ -149,7 +195,9 @@ impl FileIpc {
     }
 
     /// Wait for a response file to appear.
-    async fn wait_for_response(&self, request_id: &str) -> anyhow::Result<FileIpcResponse> {
+    ///
+    /// On timeout, cleans up the orphaned request file to prevent accumulation.
+    async fn wait_for_response(&self, request_id: &str, request_path: &std::path::Path) -> anyhow::Result<FileIpcResponse> {
         let response_path = self.responses_dir.join(format!("res_{}.json", request_id));
         let poll_interval = Duration::from_millis(50);
         let start = std::time::Instant::now();
@@ -178,6 +226,7 @@ impl FileIpc {
 
                         // Check timeout before retrying
                         if start.elapsed() > self.timeout {
+                            self.cleanup_orphaned_request(request_path).await;
                             error!("Timeout waiting for automation response {} (last error: {})", request_id, e);
                             anyhow::bail!("Timeout waiting for automation agent response");
                         }
@@ -187,11 +236,25 @@ impl FileIpc {
             }
 
             if start.elapsed() > self.timeout {
+                self.cleanup_orphaned_request(request_path).await;
                 error!("Timeout waiting for automation response {}", request_id);
                 anyhow::bail!("Timeout waiting for automation agent response");
             }
 
             sleep(poll_interval).await;
+        }
+    }
+
+    /// Clean up an orphaned request file on timeout.
+    ///
+    /// This prevents request files from accumulating when the PowerShell agent
+    /// is not responding (e.g., RDPDR channel is dead).
+    async fn cleanup_orphaned_request(&self, request_path: &std::path::Path) {
+        if request_path.exists() {
+            debug!("Cleaning up orphaned request file: {:?}", request_path);
+            if let Err(e) = fs::remove_file(request_path).await {
+                warn!("Failed to clean up orphaned request file: {}", e);
+            }
         }
     }
 

@@ -354,7 +354,8 @@ fn query_information(
                     );
                     Ok(vec![SvcMessage::from(res)])
                 } else {
-                    warn!("unsupported file class");
+                    // Windows may request various file info classes; returning UNSUCCESSFUL is valid
+                    debug!("unsupported file info class: {:?}", req_inner.file_info_class_lvl);
                     let res = RdpdrPdu::ClientDriveQueryInformationResponse(
                         ClientDriveQueryInformationResponse {
                             device_io_response: DeviceIoResponse::new(
@@ -772,7 +773,8 @@ fn make_query_dir_resp(
                             ),
                         )])
                     } else {
-                        warn!("unsupported file class for query directory");
+                        // Windows may request various file info classes; NOT_SUPPORTED is a valid response
+                        debug!("unsupported file class for query directory: {:?}", file_class);
                         Ok(vec![SvcMessage::from(
                             RdpdrPdu::ClientDriveQueryDirectoryResponse(
                                 ClientDriveQueryDirectoryResponse {
@@ -787,7 +789,8 @@ fn make_query_dir_resp(
                     }
                 }
                 Err(error) => {
-                    warn!(%error, "Get metadata error");
+                    // File may have been deleted between listing and metadata fetch (normal for IPC)
+                    debug!(%error, "Get metadata error (file may have been deleted)");
                     Ok(vec![SvcMessage::from(
                         RdpdrPdu::ClientDriveQueryDirectoryResponse(
                             ClientDriveQueryDirectoryResponse {
