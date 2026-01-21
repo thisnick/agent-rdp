@@ -123,6 +123,9 @@ pub enum ResponseData {
 
     /// Command run result.
     RunResult(RunResult),
+
+    /// OCR locate result.
+    LocateResult(LocateResult),
 }
 
 /// Session information.
@@ -186,6 +189,34 @@ pub struct MappedDrive {
     pub name: String,
     /// Local path.
     pub path: String,
+}
+
+/// OCR locate result.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocateResult {
+    /// Matching text regions found.
+    pub matches: Vec<OcrMatch>,
+    /// Total words detected on screen.
+    pub total_words: u32,
+}
+
+/// A text region found by OCR.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OcrMatch {
+    /// Recognized text.
+    pub text: String,
+    /// Left edge X coordinate.
+    pub x: i32,
+    /// Top edge Y coordinate.
+    pub y: i32,
+    /// Width of bounding box.
+    pub width: i32,
+    /// Height of bounding box.
+    pub height: i32,
+    /// Center X coordinate (for clicking).
+    pub center_x: i32,
+    /// Center Y coordinate (for clicking).
+    pub center_y: i32,
 }
 
 /// Error information.

@@ -18,10 +18,20 @@ agent-rdp disconnect                                 # Disconnect
 
 ## Core workflow
 
-1. Connect: `agent-rdp connect --host <ip> --username <user> --password <pass>`
-2. Screenshot: `agent-rdp screenshot -o screen.png` (saves to file)
-3. Interact using mouse/keyboard commands with screen coordinates
-4. Re-screenshot after actions to verify results
+### With UI Automation (recommended)
+
+1. Connect with automation: `agent-rdp connect --host <ip> -u <user> -p <pass> --enable-win-automation`
+2. Snapshot: `agent-rdp automate snapshot -i` (get accessibility tree)
+3. Act: `agent-rdp automate click @e5` (use ref from snapshot)
+4. Repeat: snapshot → act → snapshot → act...
+
+### Fallback: OCR-based location
+
+If UI Automation doesn't find the element you need (some dialogs, WebView content, etc.):
+
+1. Screenshot: `agent-rdp screenshot -o screen.png`
+2. Locate: `agent-rdp locate "Button Text"` (OCR finds text coordinates)
+3. Click: `agent-rdp mouse click <x> <y>` (use center coordinates from locate)
 
 ## Commands
 
@@ -96,6 +106,22 @@ agent-rdp --session work screenshot       # Use named session
 ### Wait
 ```bash
 agent-rdp wait 2000                       # Wait 2 seconds
+```
+
+### Locate (OCR)
+```bash
+agent-rdp locate "Cancel"                 # Find lines containing "Cancel"
+agent-rdp locate "Save*" --pattern        # Glob pattern matching
+agent-rdp locate --all                    # Get all text on screen
+agent-rdp locate "OK" --json              # JSON output with coordinates
+```
+
+Returns text lines with bounding boxes and center coordinates for clicking:
+```
+Found 1 line(s) containing 'Cancel':
+  'Cancel' at (650, 420) size 45x14 - center: (672, 427)
+
+To click the first match: agent-rdp mouse click 672 427
 ```
 
 ### UI Automation
@@ -257,26 +283,22 @@ agent-rdp view --port 9224
 # Or manually access WebSocket at ws://localhost:9224 (broadcasts JPEG frames)
 ```
 
-## Known limitations
+## Tips
 
-### Start menu and search flyout are not accessible via UI Automation
+### Opening applications
 
-The Windows 11 Start menu and search flyout use a WebView-based UI that does not expose accessibility elements to the UI Automation API. To open applications:
-
-**Instead of searching via Start menu, use `automate run`:**
+Use `automate run` to launch apps directly:
 ```bash
-# Open apps directly via run command
 agent-rdp automate run "notepad.exe"
 agent-rdp automate run "calc.exe"
 agent-rdp automate run "Start-Process ms-settings:" --wait   # Settings
-agent-rdp automate run "Start-Process ms-settings:display" --wait  # Display settings
 agent-rdp automate run "explorer.exe C:\\"                   # File Explorer
 ```
 
-**Or use keyboard shortcuts:**
+### When UI Automation doesn't work
+
+Some UI elements (WebView content, certain dialogs) aren't in the accessibility tree. Use OCR:
 ```bash
-agent-rdp keyboard press "win+r"          # Open Run dialog (accessible)
-agent-rdp wait 500
-agent-rdp keyboard type "notepad"
-agent-rdp keyboard press enter
+agent-rdp locate "Button Text"            # Find the text
+agent-rdp mouse click 672 427             # Click the center coordinates
 ```

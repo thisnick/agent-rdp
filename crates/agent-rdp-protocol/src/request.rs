@@ -34,6 +34,9 @@ pub enum Request {
     /// UI Automation operation.
     Automate(AutomateRequest),
 
+    /// OCR-based text location.
+    Locate(LocateRequest),
+
     /// Get session info.
     SessionInfo,
 
@@ -254,6 +257,31 @@ pub enum ClipboardRequest {
 pub enum DriveRequest {
     /// List mapped drives.
     List,
+}
+
+/// OCR-based text location request.
+/// Uses screenshot + OCR to find text on screen and return coordinates.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocateRequest {
+    /// Text to search for (ignored if `all` is true).
+    #[serde(default)]
+    pub text: String,
+
+    /// Use pattern matching (glob-style: * and ?).
+    #[serde(default)]
+    pub pattern: bool,
+
+    /// Case-insensitive matching (default: true).
+    #[serde(default = "default_true")]
+    pub ignore_case: bool,
+
+    /// Return all text on screen (ignores text/pattern/ignore_case).
+    #[serde(default)]
+    pub all: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[cfg(test)]

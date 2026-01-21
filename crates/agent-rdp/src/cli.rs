@@ -58,6 +58,9 @@ pub enum Commands {
     /// Windows UI Automation operations
     Automate(AutomateArgs),
 
+    /// OCR-based text location (find text on screen)
+    Locate(LocateArgs),
+
     /// Session management
     Session(SessionArgs),
 
@@ -481,4 +484,24 @@ pub enum AutomateAction {
 
     /// Get automation agent status
     Status,
+}
+
+/// Locate command arguments (OCR-based text location).
+#[derive(Parser)]
+pub struct LocateArgs {
+    /// Text to search for on screen (searches within full lines)
+    #[arg(required_unless_present = "all")]
+    pub text: Option<String>,
+
+    /// Use pattern matching (glob-style: * and ?)
+    #[arg(long, short = 'p')]
+    pub pattern: bool,
+
+    /// Case-sensitive matching (default is case-insensitive)
+    #[arg(long, short = 'c')]
+    pub case_sensitive: bool,
+
+    /// Return all text lines on screen (ignores search text)
+    #[arg(long, short = 'a')]
+    pub all: bool,
 }
