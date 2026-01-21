@@ -8,18 +8,21 @@ use serde::{Deserialize, Serialize};
 pub enum AutomateRequest {
     /// Take a snapshot of the accessibility tree.
     Snapshot {
-        /// Include reference numbers for elements.
+        /// Filter to interactive elements only (buttons, inputs, links).
         #[serde(default)]
-        include_refs: bool,
-        /// Scope of the snapshot (desktop or window).
+        interactive_only: bool,
+        /// Compact mode - remove empty structural elements.
         #[serde(default)]
-        scope: SnapshotScope,
-        /// Window selector when scope is Window.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        window: Option<String>,
+        compact: bool,
         /// Maximum tree depth to traverse.
         #[serde(default = "default_max_depth")]
         max_depth: u32,
+        /// Scope to a specific element (window, panel, etc.) via selector.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        selector: Option<String>,
+        /// Start from the currently focused element.
+        #[serde(default)]
+        focused: bool,
     },
 
     /// Get element properties.
@@ -153,17 +156,6 @@ fn default_max_depth() -> u32 {
 
 fn default_wait_timeout() -> u64 {
     30000
-}
-
-/// Scope for accessibility tree snapshot.
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum SnapshotScope {
-    /// Entire desktop.
-    #[default]
-    Desktop,
-    /// Specific window.
-    Window,
 }
 
 /// Mouse button for automation clicks.
@@ -402,20 +394,20 @@ mod tests {
     #[test]
     fn test_automate_request_serialization() {
         let req = AutomateRequest::Snapshot {
-            include_refs: true,
-            scope: SnapshotScope::Desktop,
-            window: None,
+            interactive_only: true,
+            compact: false,
             max_depth: 10,
+            selector: None,
         };
 
         let json = serde_json::to_string(&req).unwrap();
         assert!(json.contains("\"op\":\"snapshot\""));
-        assert!(json.contains("\"include_refs\":true"));
+        assert!(json.contains("\"interactive_only\":true"));
 
         let parsed: AutomateRequest = serde_json::from_str(&json).unwrap();
         match parsed {
-            AutomateRequest::Snapshot { include_refs, .. } => {
-                assert!(include_refs);
+            AutomateRequest::Snapshot { interactive_only, .. } => {
+                assert!(interactive_only);
             }
             _ => panic!("unexpected request type"),
         }

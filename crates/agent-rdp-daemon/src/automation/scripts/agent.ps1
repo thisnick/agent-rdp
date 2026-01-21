@@ -17,12 +17,25 @@ Add-Type -AssemblyName System.Windows.Forms
 $script:RefMap = @{}  # ref number -> AutomationElement mapping
 $script:SnapshotId = $null
 $script:Version = "1.0.0"
+$script:LogPath = "$BasePath\agent.log"
+
+# ============ LOGGING ============
+
+function Write-Log {
+    param([string]$Message, [string]$Level = "INFO")
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff"
+    $logEntry = "[$timestamp] [$Level] $Message"
+    try {
+        Add-Content -Path $script:LogPath -Value $logEntry -ErrorAction SilentlyContinue
+    } catch {}
+}
 
 # ============ HELPER TYPES ============
 
-# Add mouse input helper via P/Invoke
+# Add mouse input and window enumeration helpers via P/Invoke
 Add-Type -TypeDefinition @"
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
 public class MouseInput {
@@ -57,6 +70,30 @@ public class MouseInput {
         LeftClick();
     }
 }
+
+public class WindowEnum {
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+
+    private static List<IntPtr> windowHandles;
+
+    public static IntPtr[] GetAllWindows() {
+        windowHandles = new List<IntPtr>();
+        EnumWindows(EnumWindowCallback, IntPtr.Zero);
+        return windowHandles.ToArray();
+    }
+
+    private static bool EnumWindowCallback(IntPtr hWnd, IntPtr lParam) {
+        // Include all windows, even invisible ones (some popups may not be "visible")
+        windowHandles.Add(hWnd);
+        return true;
+    }
+}
 "@
 
 # ============ HANDSHAKE ============
@@ -75,11 +112,10 @@ function Write-Handshake {
     }
 
     $json = $handshake | ConvertTo-Json -Depth 10
-    $tmpPath = "$BasePath\handshake.json.tmp"
     $finalPath = "$BasePath\handshake.json"
 
-    $json | Set-Content $tmpPath -Encoding UTF8
-    Move-Item $tmpPath $finalPath -Force
+    # Write directly to avoid Move-Item issues over RDPDR
+    $json | Set-Content $finalPath -Encoding UTF8
 }
 
 # ============ ELEMENT STATES ============
@@ -130,30 +166,63 @@ function Get-SupportedPatterns {
 
 # ============ SNAPSHOT ============
 
+# Interactive patterns - elements with these can be interacted with
+$script:InteractivePatterns = @("invoke", "value", "toggle", "selectionitem", "expandcollapse", "rangevalue", "scroll")
+
+function Test-IsInteractive {
+    param([System.Windows.Automation.AutomationElement]$Element)
+
+    # Check if keyboard focusable
+    if ($Element.Current.IsKeyboardFocusable) { return $true }
+
+    # Check for interactive patterns
+    $patterns = @(Get-SupportedPatterns $Element)
+    foreach ($p in $patterns) {
+        if ($script:InteractivePatterns -contains $p) { return $true }
+    }
+
+    return $false
+}
+
+function Test-IsEmptyStructural {
+    param($Node)
+
+    # Empty if no name, no value, no interactive patterns, and no children
+    $hasName = -not [string]::IsNullOrEmpty($Node["name"])
+    $hasValue = -not [string]::IsNullOrEmpty($Node["value"])
+    $hasChildren = $Node["children"] -and $Node["children"].Count -gt 0
+
+    # Structural roles that can be pruned if empty
+    $structuralRoles = @("Pane", "Group", "Custom", "Document", "ScrollBar", "Thumb")
+    $isStructural = $structuralRoles -contains $Node["role"]
+
+    return $isStructural -and -not $hasName -and -not $hasValue -and -not $hasChildren
+}
+
 function Get-AccessibilityTree {
     param(
         [System.Windows.Automation.AutomationElement]$Element,
         [int]$MaxDepth = 10,
         [int]$CurrentDepth = 0,
         [ref]$RefCounter,
-        [bool]$IncludeRefs = $true
+        [bool]$InteractiveOnly = $false,
+        [bool]$Compact = $false
     )
 
     if ($CurrentDepth -gt $MaxDepth) { return $null }
 
+    # For interactive filter, check if this element or any descendant is interactive
+    $isInteractive = Test-IsInteractive $Element
+
     $RefCounter.Value++
     $ref = $RefCounter.Value
-
-    if ($IncludeRefs) {
-        $script:RefMap[$ref] = $Element
-    }
+    $script:RefMap[$ref] = $Element
 
     $rect = $Element.Current.BoundingRectangle
     $node = [ordered]@{}
 
-    if ($IncludeRefs) {
-        $node["ref"] = $ref
-    }
+    # Always include ref (with "e" prefix handled in output)
+    $node["ref"] = $ref
 
     $node["role"] = $Element.Current.ControlType.ProgrammaticName -replace "ControlType\.", ""
 
@@ -196,27 +265,40 @@ function Get-AccessibilityTree {
         $node["patterns"] = $patterns
     }
 
-    # Recurse into children
+    # Recurse into children using RawViewWalker to capture all elements
     $children = @()
     try {
-        $childElements = $Element.FindAll(
-            [System.Windows.Automation.TreeScope]::Children,
-            [System.Windows.Automation.Condition]::TrueCondition
-        )
+        $walker = [System.Windows.Automation.TreeWalker]::RawViewWalker
+        $childElements = @()
+        $child = $walker.GetFirstChild($Element)
+        while ($child) {
+            $childElements += $child
+            $child = $walker.GetNextSibling($child)
+        }
 
         foreach ($child in $childElements) {
             $childNode = Get-AccessibilityTree -Element $child -MaxDepth $MaxDepth `
-                -CurrentDepth ($CurrentDepth + 1) -RefCounter $RefCounter -IncludeRefs $IncludeRefs
+                -CurrentDepth ($CurrentDepth + 1) -RefCounter $RefCounter `
+                -InteractiveOnly $InteractiveOnly -Compact $Compact
             if ($childNode) {
                 $children += $childNode
             }
         }
     } catch {}
 
-    if ($children.Count -gt 0) {
-        $node["children"] = $children
-    } else {
-        $node["children"] = @()
+    $node["children"] = @($children)
+
+    # Apply interactive filter: skip non-interactive elements with no interactive children
+    if ($InteractiveOnly) {
+        $hasInteractiveChildren = $children.Count -gt 0
+        if (-not $isInteractive -and -not $hasInteractiveChildren) {
+            return $null
+        }
+    }
+
+    # Apply compact filter: remove empty structural elements
+    if ($Compact -and (Test-IsEmptyStructural $node)) {
+        return $null
     }
 
     return $node
@@ -229,21 +311,56 @@ function Invoke-Snapshot {
     $refCounter = [ref]0
     $script:SnapshotId = [guid]::NewGuid().ToString().Substring(0, 8)
 
-    $includeRefs = if ($null -ne $Params.include_refs) { $Params.include_refs } else { $true }
     $maxDepth = if ($null -ne $Params.max_depth) { [int]$Params.max_depth } else { 10 }
+    $interactiveOnly = if ($null -ne $Params.interactive_only) { $Params.interactive_only } else { $false }
+    $compact = if ($null -ne $Params.compact) { $Params.compact } else { $false }
+    $focused = if ($null -ne $Params.focused) { $Params.focused } else { $false }
 
-    $root = if ($Params.scope -eq "window" -and $Params.window) {
-        Find-Element -Selector $Params.window
+    # Determine root element(s)
+    if ($Params.selector) {
+        # Use selector to find specific element
+        $root = Find-Element -Selector $Params.selector
+        if (-not $root) {
+            throw "Could not find element for snapshot: $($Params.selector)"
+        }
+        $tree = Get-AccessibilityTree -Element $root -MaxDepth $maxDepth `
+            -RefCounter $refCounter -InteractiveOnly $interactiveOnly -Compact $compact
+    } elseif ($focused) {
+        # Start from focused element
+        $root = [System.Windows.Automation.AutomationElement]::FocusedElement
+        if (-not $root) {
+            throw "No focused element found"
+        }
+        $tree = Get-AccessibilityTree -Element $root -MaxDepth $maxDepth `
+            -RefCounter $refCounter -InteractiveOnly $interactiveOnly -Compact $compact
     } else {
-        [System.Windows.Automation.AutomationElement]::RootElement
-    }
+        # Enumerate ALL windows via EnumWindows to capture popups, flyouts, etc.
+        $windowHandles = [WindowEnum]::GetAllWindows()
+        $children = @()
 
-    if (-not $root) {
-        throw "Could not find root element for snapshot"
-    }
+        foreach ($hwnd in $windowHandles) {
+            try {
+                $element = [System.Windows.Automation.AutomationElement]::FromHandle($hwnd)
+                if ($element) {
+                    $childTree = Get-AccessibilityTree -Element $element -MaxDepth $maxDepth `
+                        -RefCounter $refCounter -InteractiveOnly $interactiveOnly -Compact $compact
+                    if ($childTree) {
+                        $children += $childTree
+                    }
+                }
+            } catch {
+                # Skip windows that can't be accessed
+            }
+        }
 
-    $tree = Get-AccessibilityTree -Element $root -MaxDepth $maxDepth `
-        -RefCounter $refCounter -IncludeRefs $includeRefs
+        # Create virtual root containing all windows
+        $tree = [ordered]@{
+            ref = 0
+            role = "Desktop"
+            name = "Desktop"
+            children = @($children)
+        }
+    }
 
     return @{
         snapshot_id = $script:SnapshotId
@@ -254,6 +371,73 @@ function Invoke-Snapshot {
 
 # ============ SELECTORS ============
 
+# Search for element across ALL windows (not just RootElement descendants)
+function Find-ElementAcrossAllWindows {
+    param(
+        [System.Windows.Automation.Condition]$Condition
+    )
+
+    # First try RootElement descendants (fast path)
+    $root = [System.Windows.Automation.AutomationElement]::RootElement
+    $result = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $Condition)
+    if ($result) { return $result }
+
+    # If not found, enumerate all windows and search each
+    $windowHandles = [WindowEnum]::GetAllWindows()
+    foreach ($hwnd in $windowHandles) {
+        try {
+            $windowElement = [System.Windows.Automation.AutomationElement]::FromHandle($hwnd)
+            if ($windowElement) {
+                $result = $windowElement.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $Condition)
+                if ($result) { return $result }
+            }
+        } catch {
+            # Skip inaccessible windows
+        }
+    }
+
+    return $null
+}
+
+# Search with wildcard pattern across ALL windows
+function Find-ElementByPatternAcrossAllWindows {
+    param([string]$Pattern)
+
+    # First try RootElement descendants
+    $root = [System.Windows.Automation.AutomationElement]::RootElement
+    $allElements = $root.FindAll(
+        [System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.Condition]::TrueCondition)
+
+    foreach ($elem in $allElements) {
+        if ($elem.Current.Name -like $Pattern) {
+            return $elem
+        }
+    }
+
+    # If not found, enumerate all windows
+    $windowHandles = [WindowEnum]::GetAllWindows()
+    foreach ($hwnd in $windowHandles) {
+        try {
+            $windowElement = [System.Windows.Automation.AutomationElement]::FromHandle($hwnd)
+            if ($windowElement) {
+                $allElements = $windowElement.FindAll(
+                    [System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.Condition]::TrueCondition)
+                foreach ($elem in $allElements) {
+                    if ($elem.Current.Name -like $Pattern) {
+                        return $elem
+                    }
+                }
+            }
+        } catch {
+            # Skip inaccessible windows
+        }
+    }
+
+    return $null
+}
+
 function Find-Element {
     param([string]$Selector)
 
@@ -261,49 +445,52 @@ function Find-Element {
         throw "Selector cannot be empty"
     }
 
-    $root = [System.Windows.Automation.AutomationElement]::RootElement
-
-    # @ref - reference from snapshot
-    if ($Selector -match '^@(\d+)$') {
+    # @ref or @eN - reference from snapshot (supports both @123 and @e123 formats)
+    if ($Selector -match '^@e?(\d+)$') {
         $ref = [int]$Matches[1]
-        if ($script:RefMap.ContainsKey($ref)) {
-            return $script:RefMap[$ref]
+
+        # Check if any snapshot has been taken
+        if ($null -eq $script:SnapshotId -or $script:RefMap.Count -eq 0) {
+            throw "No snapshot taken. Run 'automate snapshot' first before using @ref selectors."
         }
-        throw "Stale ref: @$ref not found in current snapshot"
+
+        if (-not $script:RefMap.ContainsKey($ref)) {
+            throw "Invalid ref: $Selector not found in snapshot (snapshot has $($script:RefMap.Count) elements, snapshot_id=$($script:SnapshotId))"
+        }
+
+        $element = $script:RefMap[$ref]
+
+        # Validate element is still accessible (UI may have changed)
+        try {
+            # Accessing any property will throw if element is stale
+            $null = $element.Current.ProcessId
+        } catch {
+            throw "Stale ref: $Selector - element no longer exists (UI has changed). Take a new snapshot."
+        }
+
+        return $element
     }
 
-    # #automationId
+    # #automationId - search across all windows
     if ($Selector -match '^#(.+)$') {
         $condition = New-Object System.Windows.Automation.PropertyCondition(
             [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Matches[1])
-        return $root.FindFirst(
-            [System.Windows.Automation.TreeScope]::Descendants, $condition)
+        return Find-ElementAcrossAllWindows -Condition $condition
     }
 
-    # .className
+    # .className - search across all windows
     if ($Selector -match '^\.(.+)$') {
         $condition = New-Object System.Windows.Automation.PropertyCondition(
             [System.Windows.Automation.AutomationElement]::ClassNameProperty, $Matches[1])
-        return $root.FindFirst(
-            [System.Windows.Automation.TreeScope]::Descendants, $condition)
+        return Find-ElementAcrossAllWindows -Condition $condition
     }
 
-    # ~pattern (wildcard name match)
+    # ~pattern (wildcard name match) - search across all windows
     if ($Selector -match '^~(.+)$') {
-        $pattern = $Matches[1]
-        $allElements = $root.FindAll(
-            [System.Windows.Automation.TreeScope]::Descendants,
-            [System.Windows.Automation.Condition]::TrueCondition)
-
-        foreach ($elem in $allElements) {
-            if ($elem.Current.Name -like $pattern) {
-                return $elem
-            }
-        }
-        return $null
+        return Find-ElementByPatternAcrossAllWindows -Pattern $Matches[1]
     }
 
-    # role:type[name] - e.g., role:button[OK]
+    # role:type[name] - search across all windows
     if ($Selector -match '^role:(\w+)\[(.+)\]$') {
         $role = $Matches[1]
         $name = $Matches[2]
@@ -319,15 +506,13 @@ function Find-Element {
             [System.Windows.Automation.AutomationElement]::NameProperty, $name)
         $condition = New-Object System.Windows.Automation.AndCondition($typeCondition, $nameCondition)
 
-        return $root.FindFirst(
-            [System.Windows.Automation.TreeScope]::Descendants, $condition)
+        return Find-ElementAcrossAllWindows -Condition $condition
     }
 
-    # Default: exact name match
+    # Default: exact name match - search across all windows
     $condition = New-Object System.Windows.Automation.PropertyCondition(
         [System.Windows.Automation.AutomationElement]::NameProperty, $Selector)
-    return $root.FindFirst(
-        [System.Windows.Automation.TreeScope]::Descendants, $condition)
+    return Find-ElementAcrossAllWindows -Condition $condition
 }
 
 # ============ ACTIONS ============
@@ -338,8 +523,18 @@ function Invoke-Click {
     $element = Find-Element -Selector $Params.selector
     if (-not $element) { throw "Element not found: $($Params.selector)" }
 
-    $button = if ($Params.button) { $Params.button } else { "left" }
-    $double = if ($Params.double) { $Params.double } else { $false }
+    # Safely get button and double parameters (handle missing properties)
+    $button = "left"
+    $double = $false
+    if ($null -ne $Params.PSObject.Properties['button']) { $button = $Params.button }
+    if ($null -ne $Params.PSObject.Properties['double']) { $double = $Params.double }
+
+    # Verify element still exists before interacting
+    try {
+        $null = $element.Current.ProcessId
+    } catch {
+        throw "Element no longer exists (window may have closed)"
+    }
 
     # Try InvokePattern first (for buttons)
     if ($button -eq "left" -and -not $double) {
@@ -349,13 +544,23 @@ function Invoke-Click {
                 $invokePattern.Invoke()
                 return @{ clicked = $true; method = "invoke" }
             }
-        } catch {}
+        } catch {
+            # InvokePattern failed, fall through to mouse click
+            Write-Log "InvokePattern failed: $($_.Exception.Message), falling back to mouse" "WARN"
+        }
     }
 
     # Fall back to click at center of bounds
-    $rect = $element.Current.BoundingRectangle
-    $x = [int]($rect.X + $rect.Width / 2)
-    $y = [int]($rect.Y + $rect.Height / 2)
+    try {
+        $rect = $element.Current.BoundingRectangle
+        if ($rect.IsEmpty -or $rect.Width -eq 0 -or $rect.Height -eq 0) {
+            throw "Element has no valid bounds (may be offscreen or collapsed)"
+        }
+        $x = [int]($rect.X + $rect.Width / 2)
+        $y = [int]($rect.Y + $rect.Height / 2)
+    } catch {
+        throw "Cannot get element bounds: $($_.Exception.Message)"
+    }
 
     [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point($x, $y)
     Start-Sleep -Milliseconds 50
@@ -377,14 +582,24 @@ function Invoke-Click {
 
 function Invoke-DoubleClick {
     param($Params)
-    $Params.double = $true
-    return Invoke-Click -Params $Params
+    # Create new params with double=true (can't add properties to PSObject from JSON)
+    $clickParams = @{
+        selector = $Params.selector
+        button = "left"
+        double = $true
+    }
+    return Invoke-Click -Params $clickParams
 }
 
 function Invoke-RightClick {
     param($Params)
-    $Params.button = "right"
-    return Invoke-Click -Params $Params
+    # Create new params with button=right
+    $clickParams = @{
+        selector = $Params.selector
+        button = "right"
+        double = $false
+    }
+    return Invoke-Click -Params $clickParams
 }
 
 function Invoke-Focus {
@@ -808,7 +1023,21 @@ function Get-AgentStatus {
 # ============ MAIN LOOP ============
 
 function Start-Agent {
+    Write-Log "Agent starting, BasePath=$BasePath"
+    Write-Log "Looking for requests in: $BasePath\requests"
+    Write-Log "Writing responses to: $BasePath\responses"
+
+    # Check if base path exists
+    if (Test-Path $BasePath) {
+        Write-Log "Base path exists: YES"
+        $items = Get-ChildItem $BasePath -ErrorAction SilentlyContinue
+        Write-Log "Base path contents: $($items.Name -join ', ')"
+    } else {
+        Write-Log "Base path exists: NO - this is a problem!" "ERROR"
+    }
+
     Write-Handshake
+    Write-Log "Handshake written"
 
     $requestDir = "$BasePath\requests"
     $responseDir = "$BasePath\responses"
@@ -816,33 +1045,51 @@ function Start-Agent {
     # Ensure directories exist
     if (-not (Test-Path $requestDir)) {
         New-Item -ItemType Directory -Path $requestDir -Force | Out-Null
+        Write-Log "Created requests directory: $requestDir"
+    } else {
+        Write-Log "Requests directory already exists: $requestDir"
     }
     if (-not (Test-Path $responseDir)) {
         New-Item -ItemType Directory -Path $responseDir -Force | Out-Null
+        Write-Log "Created responses directory: $responseDir"
+    } else {
+        Write-Log "Responses directory already exists: $responseDir"
     }
 
+    Write-Log "Entering main loop - polling $requestDir for req_*.json files"
+
+    $pollCount = 0
     while ($true) {
+        $pollCount++
+
+        # Log every 100 polls to show we're alive
+        if ($pollCount % 100 -eq 0) {
+            Write-Log "Poll #$pollCount - still running..."
+            # Debug: show what's in the requests directory
+            $allFiles = Get-ChildItem -Path $requestDir -ErrorAction SilentlyContinue
+            Write-Log "  Request dir contents: $($allFiles.Name -join ', ')"
+            $filtered = Get-ChildItem -Path $requestDir -Filter "req_*.json" -ErrorAction SilentlyContinue
+            Write-Log "  Filtered (req_*.json): $($filtered.Name -join ', ')"
+        }
+
         # Check if mapped drive is still available (cleanup detection)
         if (-not (Test-Path $BasePath)) {
-            Write-Host "Mapped drive gone, exiting..."
+            Write-Log "Mapped drive gone, exiting..." "WARN"
             exit 0
         }
 
-        # Look for request files
-        $requests = Get-ChildItem "$requestDir\req_*.json" -ErrorAction SilentlyContinue
+        # Look for request files - use Where-Object since -Filter wildcards don't work on RDPDR drives
+        $requests = Get-ChildItem -Path $requestDir -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "req_*.json" }
 
         foreach ($reqFile in $requests) {
-            $lockFile = $reqFile.FullName -replace '\.json$', '.processing'
-
-            # Skip if already being processed
-            if (Test-Path $lockFile) { continue }
-
-            # Create lock file
-            $null | Set-Content $lockFile
+            Write-Log "Processing request: $($reqFile.Name)"
 
             try {
                 $requestContent = Get-Content $reqFile.FullName -Raw
+                Write-Log "Request content: $requestContent"
                 $request = $requestContent | ConvertFrom-Json
+
+                Write-Log "Parsed request: id=$($request.id), command=$($request.command)"
 
                 $response = @{
                     id = $request.id
@@ -853,6 +1100,7 @@ function Start-Agent {
                 }
 
                 try {
+                    Write-Log "Executing command: $($request.command)"
                     $response.data = switch ($request.command) {
                         "snapshot"     { Invoke-Snapshot -Params $request.params }
                         "click"        { Invoke-Click -Params $request.params }
@@ -871,7 +1119,9 @@ function Start-Agent {
                         "status"       { Get-AgentStatus }
                         default        { throw "Unknown command: $($request.command)" }
                     }
+                    Write-Log "Command succeeded: $($request.command)"
                 } catch {
+                    Write-Log "Command failed: $($_.Exception.Message)" "ERROR"
                     $response.success = $false
                     $response.error = @{
                         code = "command_failed"
@@ -879,17 +1129,49 @@ function Start-Agent {
                     }
                 }
 
-                # Write response atomically
+                # Write response directly (avoid Move-Item over RDPDR)
                 $resPath = "$responseDir\res_$($request.id).json"
-                $tmpPath = "$resPath.tmp"
 
-                $response | ConvertTo-Json -Depth 20 | Set-Content $tmpPath -Encoding UTF8
-                Move-Item $tmpPath $resPath -Force
+                Write-Log "Writing response to: $resPath"
+                $responseJson = $response | ConvertTo-Json -Depth 20
+                $responseJson | Set-Content $resPath -Encoding UTF8
+                Write-Log "Response written successfully"
 
-            } finally {
-                # Clean up request and lock files
+                # Clean up request file (delete-on-close is handled properly by RDPDR backend)
                 Remove-Item $reqFile.FullName -Force -ErrorAction SilentlyContinue
-                Remove-Item $lockFile -Force -ErrorAction SilentlyContinue
+                Write-Log "Request file cleaned up"
+
+            } catch {
+                Write-Log "Error processing request: $($_.Exception.Message)" "ERROR"
+                Write-Log $_.ScriptStackTrace "ERROR"
+
+                # Try to write an error response if we have a request ID
+                try {
+                    if ($request -and $request.id) {
+                        $errorResponse = @{
+                            id = $request.id
+                            timestamp = (Get-Date -Format "o")
+                            success = $false
+                            data = $null
+                            error = @{
+                                code = "request_error"
+                                message = $_.Exception.Message
+                            }
+                        }
+                        $resPath = "$responseDir\res_$($request.id).json"
+                        $errorResponse | ConvertTo-Json -Depth 10 | Set-Content $resPath -Encoding UTF8
+                        Write-Log "Wrote error response to: $resPath"
+                    }
+                } catch {
+                    Write-Log "Failed to write error response: $($_.Exception.Message)" "ERROR"
+                }
+
+                # Clean up request file even on error
+                try {
+                    if ($reqFile) {
+                        Remove-Item $reqFile.FullName -Force -ErrorAction SilentlyContinue
+                    }
+                } catch {}
             }
         }
 
@@ -899,10 +1181,30 @@ function Start-Agent {
 
 # ============ ENTRY POINT ============
 
-try {
-    Start-Agent
-} catch {
-    $errorLog = "$BasePath\error.log"
-    $_ | Out-File $errorLog -Append
-    exit 1
+# Never exit - keep trying to restart on errors
+while ($true) {
+    try {
+        Write-Log "=== Agent process starting (PID: $PID) ==="
+        Start-Agent
+        # If Start-Agent returns normally (mapped drive gone), exit
+        Write-Log "Agent exiting normally"
+        exit 0
+    } catch {
+        Write-Log "FATAL ERROR (will retry): $($_.Exception.Message)" "ERROR"
+        Write-Log $_.ScriptStackTrace "ERROR"
+        try {
+            $errorLog = "$BasePath\error.log"
+            "$(Get-Date -Format 'o') FATAL: $($_.Exception.Message)`n$($_.ScriptStackTrace)" | Out-File $errorLog -Append
+        } catch {}
+
+        # Check if drive is still there - if not, exit
+        if (-not (Test-Path $BasePath)) {
+            Write-Log "Mapped drive gone, exiting after error"
+            exit 0
+        }
+
+        # Wait before retrying
+        Write-Log "Waiting 2 seconds before restart..."
+        Start-Sleep -Seconds 2
+    }
 }

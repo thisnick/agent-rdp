@@ -105,15 +105,17 @@ agent-rdp wait 2000                       # Wait 2 seconds
 # Connect with automation enabled
 agent-rdp connect --host 192.168.1.100 -u Admin -p secret --enable-win-automation
 
-# Snapshot - get accessibility tree
-agent-rdp automate snapshot               # Full desktop tree
-agent-rdp automate snapshot --refs        # Include element reference numbers
-agent-rdp automate snapshot --max-depth 5 # Limit tree depth
-agent-rdp automate snapshot --scope window --window "#Notepad"
+# Snapshot - get accessibility tree (refs always included)
+agent-rdp automate snapshot                # Full desktop tree
+agent-rdp automate snapshot -i             # Interactive elements only
+agent-rdp automate snapshot -c             # Compact (remove empty elements)
+agent-rdp automate snapshot -d 5           # Limit depth to 5 levels
+agent-rdp automate snapshot -s "~*Notepad*"# Scope to a window/element
+agent-rdp automate snapshot -i -c -d 3     # Combine options
 
-# Element operations (use selectors: @ref, #automationId, .className, or name)
+# Element operations (use selectors: @eN, #automationId, .className, or name)
 agent-rdp automate click "#SaveButton"    # Click by automation ID
-agent-rdp automate click "@5"             # Click by ref number from snapshot
+agent-rdp automate click "@e5"            # Click by ref number (e prefix)
 agent-rdp automate double-click <selector>
 agent-rdp automate right-click <selector>
 agent-rdp automate focus <selector>
@@ -133,11 +135,11 @@ agent-rdp automate scroll <selector> --direction down --amount 3
 
 # Window operations
 agent-rdp automate window list
-agent-rdp automate window focus "#Notepad"
+agent-rdp automate window focus "~*Notepad*"
 agent-rdp automate window maximize
 agent-rdp automate window minimize
 agent-rdp automate window restore
-agent-rdp automate window close "#Notepad"
+agent-rdp automate window close "~*Notepad*"
 
 # Run PowerShell commands
 agent-rdp automate run "Get-Process" --wait
@@ -152,11 +154,19 @@ agent-rdp automate status
 ```
 
 **Selector syntax:**
-- `@5` - Reference number from snapshot
+- `@e5` or `@5` - Reference number from snapshot (e prefix recommended)
 - `#SaveButton` - Automation ID
 - `.Edit` - Win32 class name
+- `~*pattern*` - Name with wildcard
 - `File` - Element name (exact match)
-- `~Save*` - Name with wildcard
+
+**Snapshot output format:**
+```
+- Window "Notepad" [ref=e1, id=Notepad]
+  - MenuBar "Application" [ref=e2]
+    - MenuItem "File" [ref=e3]
+  - Edit "Text Editor" [ref=e5, value="Hello"]
+```
 
 ## JSON output
 
@@ -206,11 +216,11 @@ agent-rdp connect --host 192.168.1.100 -u Admin -p secret --enable-win-automatio
 agent-rdp automate run "notepad.exe"
 agent-rdp wait 2000
 
-# Get accessibility snapshot to find elements
-agent-rdp automate snapshot --refs
+# Get accessibility snapshot (refs are always included)
+agent-rdp automate snapshot -i            # Interactive elements only
 
-# Type text into the edit control
-agent-rdp automate fill ".Edit" "Hello from automation!"
+# Type text into the edit control (use ref from snapshot)
+agent-rdp automate fill "@e5" "Hello from automation!"
 
 # Use File menu to save
 agent-rdp automate click "File"           # Click menu by name

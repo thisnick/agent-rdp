@@ -144,29 +144,45 @@ Enable Windows UI Automation to interact with applications programmatically:
 # Connect with automation enabled
 agent-rdp connect --host 192.168.1.100 -u Admin -p secret --enable-win-automation
 
-# Take an accessibility tree snapshot
+# Take an accessibility tree snapshot (refs are always included)
 agent-rdp automate snapshot
 
-# Click elements by selector
+# Snapshot filtering options (like agent-browser)
+agent-rdp automate snapshot -i              # Interactive elements only
+agent-rdp automate snapshot -c              # Compact (remove empty structural elements)
+agent-rdp automate snapshot -d 3            # Limit depth to 3 levels
+agent-rdp automate snapshot -s "~*Notepad*" # Scope to a window/element
+agent-rdp automate snapshot -i -c -d 5      # Combine options
+
+# Click elements by selector (refs use @eN format)
 agent-rdp automate click "#SaveButton"     # By automation ID
-agent-rdp automate click "@5"              # By ref number from snapshot
+agent-rdp automate click "@e5"             # By ref number from snapshot
 
 # Fill text fields
 agent-rdp automate fill ".Edit" "Hello World"
 
 # Window operations
 agent-rdp automate window list
-agent-rdp automate window focus "#Notepad"
+agent-rdp automate window focus "~*Notepad*"
 
 # Run PowerShell commands
 agent-rdp automate run "Get-Process" --wait
 ```
 
 **Selector Types:**
-- `@5` - Reference number from snapshot
+- `@e5` or `@5` - Reference number from snapshot (e prefix recommended)
 - `#SaveButton` - Automation ID
 - `.Edit` - Win32 class name
+- `~*pattern*` - Wildcard name match
 - `File` - Element name (exact match)
+
+**Snapshot Output Format:**
+```
+- Window "Notepad" [ref=e1, id=Notepad]
+  - MenuBar "Application" [ref=e2]
+    - MenuItem "File" [ref=e3]
+  - Edit "Text Editor" [ref=e5, value="Hello"]
+```
 
 For detailed documentation on automation, see [docs/AUTOMATION.md](docs/AUTOMATION.md).
 

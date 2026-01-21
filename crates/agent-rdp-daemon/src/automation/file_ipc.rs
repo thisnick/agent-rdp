@@ -106,18 +106,24 @@ impl FileIpc {
             params,
         };
 
-        // Write request atomically
+        // Write request directly (local filesystem, no RDPDR issues)
         let request_path = self.requests_dir.join(format!("req_{}.json", request_id));
-        let tmp_path = self.requests_dir.join(format!("req_{}.json.tmp", request_id));
 
         let json = serde_json::to_string_pretty(&ipc_request)?;
-        fs::write(&tmp_path, &json).await?;
-        fs::rename(&tmp_path, &request_path).await?;
+        debug!("Writing request to: {:?}", request_path);
+        fs::write(&request_path, &json).await?;
 
-        debug!("Sent automation request {} ({})", request_id, ipc_request.command);
+        debug!("Sent automation request {} ({}) to {:?}", request_id, ipc_request.command, request_path);
 
         // Wait for response
-        let response = self.wait_for_response(&request_id).await?;
+        let response = self.wait_for_response(&request_id).await;
+
+        // Clean up request file (we handle cleanup on the Rust side now)
+        if let Err(e) = fs::remove_file(&request_path).await {
+            trace!("Failed to clean up request file: {}", e);
+        }
+
+        let response = response?;
 
         if response.success {
             Ok(response.data.unwrap_or(serde_json::Value::Null))
@@ -155,19 +161,34 @@ impl FileIpc {
 
         loop {
             if response_path.exists() {
-                // Read and parse response
+                // Read and parse response - retry on parse errors (file may still be writing)
                 let content = fs::read_to_string(&response_path).await?;
                 // Strip UTF-8 BOM if present (PowerShell on Windows adds this)
                 let content = content.strip_prefix('\u{feff}').unwrap_or(&content);
-                let response: FileIpcResponse = serde_json::from_str(content)?;
 
-                // Clean up response file
-                if let Err(e) = fs::remove_file(&response_path).await {
-                    warn!("Failed to clean up response file: {}", e);
+                match serde_json::from_str::<FileIpcResponse>(content) {
+                    Ok(response) => {
+                        // Clean up response file
+                        if let Err(e) = fs::remove_file(&response_path).await {
+                            warn!("Failed to clean up response file: {}", e);
+                        }
+
+                        trace!("Received automation response {}", request_id);
+                        return Ok(response);
+                    }
+                    Err(e) => {
+                        // File may still be writing - wait and retry
+                        trace!("JSON parse error, retrying: {}", e);
+                        sleep(Duration::from_millis(100)).await;
+
+                        // Check timeout before retrying
+                        if start.elapsed() > self.timeout {
+                            error!("Timeout waiting for automation response {} (last error: {})", request_id, e);
+                            anyhow::bail!("Timeout waiting for automation agent response");
+                        }
+                        continue;
+                    }
                 }
-
-                trace!("Received automation response {}", request_id);
-                return Ok(response);
             }
 
             if start.elapsed() > self.timeout {
@@ -202,7 +223,6 @@ impl FileIpc {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use agent_rdp_protocol::SnapshotScope;
     use tempfile::TempDir;
 
     #[test]
@@ -210,15 +230,15 @@ mod tests {
         let ipc = FileIpc::new(PathBuf::from("/tmp/test"));
 
         let request = AutomateRequest::Snapshot {
-            include_refs: true,
-            scope: SnapshotScope::Desktop,
-            window: None,
+            interactive_only: true,
+            compact: false,
             max_depth: 10,
+            selector: None,
         };
 
         let (command, params) = ipc.serialize_request(&request).unwrap();
         assert_eq!(command, "snapshot");
-        assert_eq!(params["include_refs"], true);
+        assert_eq!(params["interactive_only"], true);
         assert_eq!(params["max_depth"], 10);
     }
 

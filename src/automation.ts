@@ -13,14 +13,14 @@ import type {
 } from './types.js';
 
 export interface SnapshotOptions {
-  /** Include reference numbers for elements. */
-  refs?: boolean;
-  /** Scope: 'desktop' or 'window'. */
-  scope?: 'desktop' | 'window';
-  /** Window selector (required when scope='window'). */
-  window?: string;
-  /** Maximum tree depth. */
-  maxDepth?: number;
+  /** Filter to interactive elements only (buttons, inputs, focusable). */
+  interactive?: boolean;
+  /** Compact mode - remove empty structural elements. */
+  compact?: boolean;
+  /** Maximum tree depth (default: 10). */
+  depth?: number;
+  /** Scope to a specific element (window, panel, etc.) via selector. */
+  selector?: string;
 }
 
 export interface GetOptions {
@@ -69,11 +69,17 @@ export interface WaitForOptions {
  * @example
  * ```typescript
  * // Take a snapshot of the accessibility tree
- * const snapshot = await rdp.automation.snapshot({ refs: true });
+ * const snapshot = await rdp.automation.snapshot();
  * console.log(`Found ${snapshot.ref_count} elements`);
  *
- * // Click an element by ref number
- * await rdp.automation.click('@5');
+ * // Interactive elements only
+ * const interactive = await rdp.automation.snapshot({ interactive: true });
+ *
+ * // Compact output with depth limit
+ * const compact = await rdp.automation.snapshot({ interactive: true, compact: true, depth: 5 });
+ *
+ * // Click an element by ref number (use @eN format)
+ * await rdp.automation.click('@e5');
  *
  * // Fill text in an element
  * await rdp.automation.fill('#SearchBox', 'Hello World');
@@ -87,15 +93,17 @@ export class AutomationController {
 
   /**
    * Take a snapshot of the accessibility tree.
+   *
+   * Refs are always included (use @eN format to reference elements).
    */
   async snapshot(options: SnapshotOptions = {}): Promise<AutomationSnapshot> {
     const request: AutomateRequest = {
       type: 'automate',
       action: 'snapshot',
-      include_refs: options.refs ?? true,
-      scope: options.scope ?? 'desktop',
-      window: options.window,
-      max_depth: options.maxDepth ?? 10,
+      interactive_only: options.interactive ?? false,
+      compact: options.compact ?? false,
+      max_depth: options.depth ?? 10,
+      selector: options.selector,
     };
     const response = await this.rdp._send(request);
     return response.data as unknown as AutomationSnapshot;

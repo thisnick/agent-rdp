@@ -130,10 +130,6 @@ pub struct ScreenshotArgs {
     #[arg(long, short = 'o', default_value = "./screenshot.png")]
     pub output: String,
 
-    /// Output base64 to stdout instead of file
-    #[arg(long)]
-    pub base64: bool,
-
     /// Image format
     #[arg(long, default_value = "png")]
     pub format: String,
@@ -312,8 +308,7 @@ pub enum SessionAction {
     /// Get current session info
     Info,
 
-    /// Run as daemon (internal use)
-    #[command(hide = true)]
+    /// Run as background daemon for this session (starts automatically on connect)
     Daemon,
 }
 
@@ -328,21 +323,25 @@ pub struct AutomateArgs {
 pub enum AutomateAction {
     /// Take a snapshot of the accessibility tree
     Snapshot {
-        /// Include reference numbers for elements
-        #[arg(long)]
-        refs: bool,
+        /// Filter to interactive elements only (buttons, inputs, focusable)
+        #[arg(short = 'i', long)]
+        interactive: bool,
 
-        /// Scope: desktop or window
-        #[arg(long)]
-        scope: Option<String>,
+        /// Compact mode - remove empty structural elements
+        #[arg(short = 'c', long)]
+        compact: bool,
 
-        /// Window selector (required when scope=window)
-        #[arg(long)]
-        window: Option<String>,
+        /// Maximum tree depth (default: 10)
+        #[arg(short = 'd', long)]
+        depth: Option<u32>,
 
-        /// Maximum tree depth
-        #[arg(long)]
-        max_depth: Option<u32>,
+        /// Scope to a specific element (window, panel, etc.) via selector
+        #[arg(short = 's', long)]
+        selector: Option<String>,
+
+        /// Start from the currently focused element
+        #[arg(short = 'f', long)]
+        focused: bool,
     },
 
     /// Get element properties

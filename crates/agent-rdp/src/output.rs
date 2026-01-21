@@ -22,15 +22,18 @@ impl Output {
     pub fn print_response(&self, response: &Response) {
         if self.json {
             println!("{}", serde_json::to_string(response).unwrap());
+        } else if response.success {
+            if let Some(ref data) = response.data {
+                self.print_data(data);
+            } else {
+                println!("OK");
+            }
         } else {
-            if response.success {
-                if let Some(ref data) = response.data {
-                    self.print_data(data);
-                } else {
-                    println!("OK");
-                }
-            } else if let Some(ref error) = response.error {
+            // Error case - always print something
+            if let Some(ref error) = response.error {
                 eprintln!("Error [{}]: {}", error.code, error.message);
+            } else {
+                eprintln!("Error: Command failed (no details provided)");
             }
         }
     }
@@ -46,13 +49,8 @@ impl Output {
             ResponseData::Connected { host, width, height } => {
                 println!("Connected to {} ({}x{})", host, width, height);
             }
-            ResponseData::Screenshot { width, height, format, base64 } => {
+            ResponseData::Screenshot { width, height, format, .. } => {
                 println!("Screenshot: {}x{} ({})", width, height, format);
-                if self.json {
-                    // In JSON mode, base64 is included in the output
-                } else {
-                    println!("Base64 data: {} bytes", base64.len());
-                }
             }
             ResponseData::Clipboard { text } => {
                 println!("{}", text);
@@ -92,12 +90,11 @@ impl Output {
                 println!("Pong");
             }
             ResponseData::Snapshot(snapshot) => {
+                // Print full accessibility tree like agent-browser
                 println!("Snapshot ID: {}", snapshot.snapshot_id);
-                println!("Elements with refs: {}", snapshot.ref_count);
-                // For non-JSON output, print a summary of the root element
-                println!("Root: {} ({})",
-                    snapshot.root.role,
-                    snapshot.root.name.as_deref().unwrap_or("-"));
+                println!("Elements: {}", snapshot.ref_count);
+                println!();
+                self.print_element_tree(&snapshot.root, 0);
             }
             ResponseData::Element(element) => {
                 if let Some(ref name) = element.name {
@@ -157,6 +154,70 @@ impl Output {
                     println!("Process ID: {}", pid);
                 }
             }
+        }
+    }
+
+    /// Print an element tree in compact Playwright-like aria format.
+    /// Format: - role "name" [ref=eN, id=..., ...]
+    fn print_element_tree(&self, element: &agent_rdp_protocol::AccessibilityElement, depth: usize) {
+        let indent = "  ".repeat(depth);
+
+        // Build the main line: - role "name"
+        let mut line = format!("{}- {}", indent, element.role);
+
+        // Add name if present
+        if let Some(ref name) = element.name {
+            if !name.is_empty() {
+                // Truncate long names
+                let display_name = if name.len() > 40 {
+                    format!("{}...", &name[..37])
+                } else {
+                    name.clone()
+                };
+                line.push_str(&format!(" \"{}\"", display_name));
+            }
+        }
+
+        // Build attributes in brackets
+        let mut attrs = Vec::new();
+
+        // Ref is always first attribute (with "e" prefix)
+        if let Some(r) = element.r#ref {
+            attrs.push(format!("ref=e{}", r));
+        }
+
+        if let Some(ref auto_id) = element.automation_id {
+            if !auto_id.is_empty() {
+                attrs.push(format!("id={}", auto_id));
+            }
+        }
+
+        if let Some(ref class) = element.class_name {
+            if !class.is_empty() {
+                attrs.push(format!("class={}", class));
+            }
+        }
+
+        if let Some(ref value) = element.value {
+            if !value.is_empty() {
+                let display_value = if value.len() > 30 {
+                    format!("{}...", &value[..27])
+                } else {
+                    value.clone()
+                };
+                attrs.push(format!("value=\"{}\"", display_value));
+            }
+        }
+
+        if !attrs.is_empty() {
+            line.push_str(&format!(" [{}]", attrs.join(", ")));
+        }
+
+        println!("{}", line);
+
+        // Recurse into children
+        for child in &element.children {
+            self.print_element_tree(child, depth + 1);
         }
     }
 

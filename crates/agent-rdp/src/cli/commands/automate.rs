@@ -1,8 +1,8 @@
 //! Automate command implementation for Windows UI Automation.
 
 use agent_rdp_protocol::{
-    AutomateRequest, AutomationMouseButton, AutomationScrollDirection, Request, SnapshotScope,
-    WaitState, WindowAction,
+    AutomateRequest, AutomationMouseButton, AutomationScrollDirection, Request, WaitState,
+    WindowAction,
 };
 
 use crate::cli::{AutomateAction, AutomateArgs};
@@ -26,23 +26,18 @@ pub async fn run(
 
     let automate_request = match args.action {
         AutomateAction::Snapshot {
-            refs,
-            scope,
-            window,
-            max_depth,
-        } => {
-            let scope = if scope.as_deref() == Some("window") {
-                SnapshotScope::Window
-            } else {
-                SnapshotScope::Desktop
-            };
-            AutomateRequest::Snapshot {
-                include_refs: refs,
-                scope,
-                window,
-                max_depth: max_depth.unwrap_or(10),
-            }
-        }
+            interactive,
+            compact,
+            depth,
+            selector,
+            focused,
+        } => AutomateRequest::Snapshot {
+            interactive_only: interactive,
+            compact,
+            max_depth: depth.unwrap_or(10),
+            selector,
+            focused,
+        },
 
         AutomateAction::Get { selector, property } => AutomateRequest::Get { selector, property },
 

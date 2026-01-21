@@ -31,6 +31,8 @@ pub struct MultiDriveBackend {
     file_device_map: HashMap<u32, u32>,
     /// Directory iteration state.
     file_dir_map: HashMap<u32, DirIterState>,
+    /// Files marked for deletion on close (set via FileDispositionInformation).
+    delete_on_close: HashMap<u32, bool>,
 }
 
 /// State for directory iteration.
@@ -228,10 +230,41 @@ fn close_device(
     backend: &mut MultiDriveBackend,
     req_inner: DeviceCloseRequest,
 ) -> PduResult<Vec<SvcMessage>> {
-    backend.file_map.remove(&req_inner.device_io_request.file_id);
-    backend.file_path_map.remove(&req_inner.device_io_request.file_id);
-    backend.file_device_map.remove(&req_inner.device_io_request.file_id);
-    backend.file_dir_map.remove(&req_inner.device_io_request.file_id);
+    let file_id = req_inner.device_io_request.file_id;
+
+    // Sync file to disk before closing to ensure visibility for subsequent operations
+    // This is critical for RDPDR where Windows may immediately try to access/rename the file
+    if let Some(Some(file)) = backend.file_map.get(&file_id) {
+        if let Err(e) = file.sync_all() {
+            warn!("Failed to sync file on close: {:?}", e);
+        }
+    }
+
+    // Check if file was marked for deletion
+    let should_delete = backend.delete_on_close.remove(&file_id).unwrap_or(false);
+
+    // Get path before removing from maps (needed for deletion)
+    let file_path = backend.file_path_map.get(&file_id).cloned();
+
+    // Clean up all mappings
+    backend.file_map.remove(&file_id);
+    backend.file_path_map.remove(&file_id);
+    backend.file_device_map.remove(&file_id);
+    backend.file_dir_map.remove(&file_id);
+
+    // Perform actual deletion after closing handle and cleaning up maps
+    if should_delete {
+        if let Some(path) = file_path {
+            debug!("Deleting file on close: {:?}", path);
+            if let Err(e) = fs::remove_file(&path) {
+                // Try removing as directory if file removal fails
+                if let Err(e2) = fs::remove_dir(&path) {
+                    warn!("Failed to delete {:?}: file={:?}, dir={:?}", path, e, e2);
+                }
+            }
+        }
+    }
+
     let res = RdpdrPdu::DeviceCloseResponse(DeviceCloseResponse {
         device_io_response: DeviceIoResponse::new(req_inner.device_io_request, NtStatus::SUCCESS),
     });
@@ -583,14 +616,19 @@ fn set_information(
                 FileInformationClass::Allocation(_) => {
                     // nothing to do
                 }
-                FileInformationClass::Disposition(_) => {
-                    if let Err(error) = fs::remove_file(file_path) {
-                        warn!(?error, "Remove file error");
-                        let res = RdpdrPdu::ClientDriveSetInformationResponse(
-                            ClientDriveSetInformationResponse::new(&req_inner, NtStatus::UNSUCCESSFUL)
-                                .map_err(|e| encode_err!(e))?,
-                        );
-                        return Ok(vec![SvcMessage::from(res)]);
+                FileInformationClass::Disposition(info) => {
+                    // Mark file for deletion on close (per Windows semantics)
+                    // Don't delete immediately - that corrupts the state if file is still in use
+                    let should_delete = info.delete_pending != 0;
+                    debug!(
+                        "set_information DISPOSITION: file_id={}, delete_on_close={}",
+                        file_id, should_delete
+                    );
+                    if should_delete {
+                        backend.delete_on_close.insert(file_id, true);
+                    } else {
+                        // Can unmark if delete_pending is false
+                        backend.delete_on_close.remove(&file_id);
                     }
                 }
                 FileInformationClass::EndOfFile(info) => {
