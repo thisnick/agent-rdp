@@ -116,14 +116,9 @@ impl FileIpc {
         debug!("Sent automation request {} ({}) to {:?}", request_id, ipc_request.command, request_path);
 
         // Wait for response
-        let response = self.wait_for_response(&request_id).await;
-
-        // Clean up request file (we handle cleanup on the Rust side now)
-        if let Err(e) = fs::remove_file(&request_path).await {
-            trace!("Failed to clean up request file: {}", e);
-        }
-
-        let response = response?;
+        // NOTE: Consumer deletes - PowerShell deletes request after reading,
+        // Rust deletes response after reading
+        let response = self.wait_for_response(&request_id).await?;
 
         if response.success {
             Ok(response.data.unwrap_or(serde_json::Value::Null))

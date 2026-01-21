@@ -1107,15 +1107,20 @@ function Start-Agent {
                     }
                 }
 
-                # Write response directly (avoid Move-Item over RDPDR)
+                # Write response atomically: write to temp file, then rename
+                # This prevents Rust from reading a partially-written file
                 $resPath = "$responseDir\res_$($request.id).json"
+                $tmpPath = "$responseDir\res_$($request.id).tmp"
 
-                Write-Log "Writing response to: $resPath"
+                Write-Log "Writing response to: $resPath (via temp file)"
                 $responseJson = $response | ConvertTo-Json -Depth 20
-                $responseJson | Set-Content $resPath -Encoding UTF8
+                $responseJson | Set-Content $tmpPath -Encoding UTF8
+
+                # Atomic rename - Rust will see either no file or complete file
+                Move-Item -Path $tmpPath -Destination $resPath -Force
                 Write-Log "Response written successfully"
 
-                # Clean up request file (delete-on-close is handled properly by RDPDR backend)
+                # Consumer deletes: PowerShell consumes request, so delete it here
                 Remove-Item $reqFile.FullName -Force -ErrorAction SilentlyContinue
                 Write-Log "Request file cleaned up"
 
@@ -1136,15 +1141,18 @@ function Start-Agent {
                                 message = $_.Exception.Message
                             }
                         }
+                        # Atomic write for error response too
                         $resPath = "$responseDir\res_$($request.id).json"
-                        $errorResponse | ConvertTo-Json -Depth 10 | Set-Content $resPath -Encoding UTF8
+                        $tmpPath = "$responseDir\res_$($request.id).tmp"
+                        $errorResponse | ConvertTo-Json -Depth 10 | Set-Content $tmpPath -Encoding UTF8
+                        Move-Item -Path $tmpPath -Destination $resPath -Force
                         Write-Log "Wrote error response to: $resPath"
                     }
                 } catch {
                     Write-Log "Failed to write error response: $($_.Exception.Message)" "ERROR"
                 }
 
-                # Clean up request file even on error
+                # Consumer deletes: clean up request file even on error
                 try {
                     if ($reqFile) {
                         Remove-Item $reqFile.FullName -Force -ErrorAction SilentlyContinue
