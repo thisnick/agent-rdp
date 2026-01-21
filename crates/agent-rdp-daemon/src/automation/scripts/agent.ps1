@@ -334,32 +334,10 @@ function Invoke-Snapshot {
         $tree = Get-AccessibilityTree -Element $root -MaxDepth $maxDepth `
             -RefCounter $refCounter -InteractiveOnly $interactiveOnly -Compact $compact
     } else {
-        # Enumerate ALL windows via EnumWindows to capture popups, flyouts, etc.
-        $windowHandles = [WindowEnum]::GetAllWindows()
-        $children = @()
-
-        foreach ($hwnd in $windowHandles) {
-            try {
-                $element = [System.Windows.Automation.AutomationElement]::FromHandle($hwnd)
-                if ($element) {
-                    $childTree = Get-AccessibilityTree -Element $element -MaxDepth $maxDepth `
-                        -RefCounter $refCounter -InteractiveOnly $interactiveOnly -Compact $compact
-                    if ($childTree) {
-                        $children += $childTree
-                    }
-                }
-            } catch {
-                # Skip windows that can't be accessed
-            }
-        }
-
-        # Create virtual root containing all windows
-        $tree = [ordered]@{
-            ref = 0
-            role = "Desktop"
-            name = "Desktop"
-            children = @($children)
-        }
+        # Use RootElement (desktop) and walk with RawViewWalker
+        $root = [System.Windows.Automation.AutomationElement]::RootElement
+        $tree = Get-AccessibilityTree -Element $root -MaxDepth $maxDepth `
+            -RefCounter $refCounter -InteractiveOnly $interactiveOnly -Compact $compact
     }
 
     return @{
