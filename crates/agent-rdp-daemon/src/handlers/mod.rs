@@ -1,5 +1,6 @@
 //! Command handlers for RDP operations.
 
+pub mod automate;
 pub mod clipboard;
 pub mod connect;
 pub mod drive;

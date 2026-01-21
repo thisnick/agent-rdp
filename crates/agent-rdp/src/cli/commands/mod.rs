@@ -1,5 +1,6 @@
 //! Command implementations.
 
+pub mod automate;
 pub mod clipboard;
 pub mod connect;
 pub mod disconnect;

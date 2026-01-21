@@ -91,6 +91,72 @@ impl Output {
             ResponseData::Pong => {
                 println!("Pong");
             }
+            ResponseData::Snapshot(snapshot) => {
+                println!("Snapshot ID: {}", snapshot.snapshot_id);
+                println!("Elements with refs: {}", snapshot.ref_count);
+                // For non-JSON output, print a summary of the root element
+                println!("Root: {} ({})",
+                    snapshot.root.role,
+                    snapshot.root.name.as_deref().unwrap_or("-"));
+            }
+            ResponseData::Element(element) => {
+                if let Some(ref name) = element.name {
+                    println!("Name: {}", name);
+                }
+                if let Some(ref value) = element.value {
+                    println!("Value: {}", value);
+                }
+                if !element.states.is_empty() {
+                    println!("States: {}", element.states.join(", "));
+                }
+                if let Some(ref bounds) = element.bounds {
+                    println!("Bounds: {}x{} at ({}, {})",
+                        bounds.width, bounds.height, bounds.x, bounds.y);
+                }
+            }
+            ResponseData::WindowList { windows } => {
+                if windows.is_empty() {
+                    println!("No windows found");
+                } else {
+                    for window in windows {
+                        let process = window.process_name.as_deref().unwrap_or("-");
+                        println!("{}: {} ({})", window.title, process,
+                            if window.minimized { "minimized" }
+                            else if window.maximized { "maximized" }
+                            else { "normal" });
+                    }
+                }
+            }
+            ResponseData::AutomationStatus(status) => {
+                println!("Agent running: {}", status.agent_running);
+                if let Some(pid) = status.agent_pid {
+                    println!("Agent PID: {}", pid);
+                }
+                if let Some(ref version) = status.version {
+                    println!("Version: {}", version);
+                }
+                if !status.capabilities.is_empty() {
+                    println!("Capabilities: {}", status.capabilities.join(", "));
+                }
+            }
+            ResponseData::RunResult(result) => {
+                if let Some(code) = result.exit_code {
+                    println!("Exit code: {}", code);
+                }
+                if let Some(ref stdout) = result.stdout {
+                    if !stdout.is_empty() {
+                        println!("{}", stdout);
+                    }
+                }
+                if let Some(ref stderr) = result.stderr {
+                    if !stderr.is_empty() {
+                        eprintln!("{}", stderr);
+                    }
+                }
+                if let Some(pid) = result.pid {
+                    println!("Process ID: {}", pid);
+                }
+            }
         }
     }
 

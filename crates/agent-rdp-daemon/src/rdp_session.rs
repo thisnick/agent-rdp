@@ -20,7 +20,7 @@ use ironrdp::session::image::DecodedImage;
 use ironrdp::session::{ActiveStage, ActiveStageOutput};
 use ironrdp_rdpdr::Rdpdr;
 
-use crate::rdpdr_backend::PlatformRdpdrBackend;
+use crate::rdpdr_backend::MultiDriveBackend;
 use ironrdp_rdpsnd::client::{NoopRdpsndBackend, Rdpsnd};
 use ironrdp_tokio::{FramedWrite, TokioFramed};
 use tokio::net::TcpStream;
@@ -49,6 +49,9 @@ pub enum RdpError {
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
 }
 
 /// Configuration for an RDP connection.
@@ -181,27 +184,33 @@ impl RdpSession {
 
         // Set up RDPDR (drive redirection) if drives are configured
         if !config.drives.is_empty() {
-            // Use the first drive's path as the base directory for the native backend
-            // Note: PlatformRdpdrBackend only supports a single base directory
-            let first_drive = &config.drives[0];
-            let backend = Box::new(PlatformRdpdrBackend::new(first_drive.path.clone()));
-            let rdpdr = Rdpdr::new(backend, "agent-rdp".to_string());
+            // Create multi-drive backend with all drive paths
+            let mut backend = MultiDriveBackend::new();
 
-            // Configure drives - convert DriveMapping to (device_id, name) pairs
+            // Configure drives - device IDs start at 1
             let drive_list: Vec<(u32, String)> = config
                 .drives
                 .iter()
                 .enumerate()
-                .map(|(idx, d)| ((idx + 1) as u32, d.name.clone()))
+                .map(|(idx, d)| {
+                    let device_id = (idx + 1) as u32;
+                    // Register path for this device ID
+                    backend.add_drive(device_id, std::path::PathBuf::from(&d.path));
+                    (device_id, d.name.clone())
+                })
                 .collect();
 
-            let rdpdr = rdpdr.with_drives(Some(drive_list));
+            let rdpdr = Rdpdr::new(Box::new(backend), "agent-rdp".to_string());
+            let rdpdr = rdpdr.with_drives(Some(drive_list.clone()));
             connector.attach_static_channel(rdpdr);
 
-            info!(
-                "Drive redirection enabled: {} -> \\\\TSCLIENT\\{}",
-                first_drive.path, first_drive.name
-            );
+            for (device_id, name) in &drive_list {
+                let path = &config.drives[(*device_id - 1) as usize].path;
+                info!(
+                    "Drive redirection enabled: {} -> \\\\TSCLIENT\\{} (device_id={})",
+                    path, name, device_id
+                );
+            }
         }
 
         // Begin connection (pre-TLS)
@@ -394,6 +403,51 @@ impl RdpSession {
             .send(SessionCommand::SendInput(events))
             .await
             .map_err(|_| RdpError::SessionClosed)
+    }
+
+    /// Send a key combination (e.g., "super+r", "ctrl+c").
+    pub async fn send_key_press(&self, keys: &str) -> Result<(), RdpError> {
+        use std::time::Duration;
+
+        let key_infos = parse_key_combination(keys)
+            .map_err(|e| RdpError::InvalidInput(e))?;
+
+        // Press all keys down
+        for info in &key_infos {
+            let event = create_key_event(info.scancode, info.extended, false);
+            self.send_input(vec![event]).await?;
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+
+        // Small delay before releasing
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        // Release all keys in reverse order
+        for info in key_infos.iter().rev() {
+            let event = create_key_event(info.scancode, info.extended, true);
+            self.send_input(vec![event]).await?;
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+
+        Ok(())
+    }
+
+    /// Send text input as Unicode characters.
+    pub async fn send_text(&self, text: &str) -> Result<(), RdpError> {
+        use ironrdp::pdu::input::fast_path::KeyboardFlags;
+        use std::time::Duration;
+
+        for ch in text.chars() {
+            let code = ch as u16;
+            let events = vec![
+                FastPathInputEvent::UnicodeKeyboardEvent(KeyboardFlags::empty(), code),
+                FastPathInputEvent::UnicodeKeyboardEvent(KeyboardFlags::RELEASE, code),
+            ];
+            self.send_input(events).await?;
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+
+        Ok(())
     }
 
     /// Set clipboard text (will be available when remote pastes).
@@ -746,4 +800,105 @@ impl ironrdp_tokio::NetworkClient for NoopNetworkClient {
             Ok(Vec::new())
         }
     }
+}
+
+// ============ Key Input Helpers ============
+
+/// Key information including scancode and extended flag.
+struct KeyInfo {
+    scancode: u8,
+    extended: bool,
+}
+
+/// Parse a key combination like "ctrl+c" into key info for sending.
+fn parse_key_combination(keys: &str) -> Result<Vec<KeyInfo>, String> {
+    let parts: Vec<String> = keys.split('+').map(|s| s.trim().to_lowercase()).collect();
+
+    let mut key_infos = Vec::new();
+
+    for key in &parts {
+        let (scancode, extended) = key_to_scancode(key)
+            .ok_or_else(|| format!("Unknown key: {}", key))?;
+        key_infos.push(KeyInfo { scancode, extended });
+    }
+
+    Ok(key_infos)
+}
+
+/// Convert a key name to a scancode and extended flag.
+fn key_to_scancode(key: &str) -> Option<(u8, bool)> {
+    use std::collections::HashMap;
+
+    let key_lower = key.to_lowercase();
+    let key_map: HashMap<&str, (u8, bool)> = [
+        // Modifier keys
+        ("ctrl", (0x1D, false)),
+        ("control", (0x1D, false)),
+        ("alt", (0x38, false)),
+        ("shift", (0x2A, false)),
+        ("win", (0x5B, true)),
+        ("windows", (0x5B, true)),
+        ("super", (0x5B, true)),
+
+        // Function keys
+        ("esc", (0x01, false)),
+        ("escape", (0x01, false)),
+        ("tab", (0x0F, false)),
+        ("enter", (0x1C, false)),
+        ("return", (0x1C, false)),
+        ("backspace", (0x0E, false)),
+        ("space", (0x39, false)),
+
+        // Arrow keys
+        ("up", (0x48, true)),
+        ("down", (0x50, true)),
+        ("left", (0x4B, true)),
+        ("right", (0x4D, true)),
+
+        // Letter keys
+        ("a", (0x1E, false)),
+        ("b", (0x30, false)),
+        ("c", (0x2E, false)),
+        ("d", (0x20, false)),
+        ("e", (0x12, false)),
+        ("f", (0x21, false)),
+        ("g", (0x22, false)),
+        ("h", (0x23, false)),
+        ("i", (0x17, false)),
+        ("j", (0x24, false)),
+        ("k", (0x25, false)),
+        ("l", (0x26, false)),
+        ("m", (0x32, false)),
+        ("n", (0x31, false)),
+        ("o", (0x18, false)),
+        ("p", (0x19, false)),
+        ("q", (0x10, false)),
+        ("r", (0x13, false)),
+        ("s", (0x1F, false)),
+        ("t", (0x14, false)),
+        ("u", (0x16, false)),
+        ("v", (0x2F, false)),
+        ("w", (0x11, false)),
+        ("x", (0x2D, false)),
+        ("y", (0x15, false)),
+        ("z", (0x2C, false)),
+    ]
+    .into_iter()
+    .collect();
+
+    key_map.get(key_lower.as_str()).copied()
+}
+
+/// Create a keyboard event with proper flags.
+fn create_key_event(scancode: u8, extended: bool, release: bool) -> FastPathInputEvent {
+    use ironrdp::pdu::input::fast_path::KeyboardFlags;
+
+    let mut flags = KeyboardFlags::empty();
+    if release {
+        flags |= KeyboardFlags::RELEASE;
+    }
+    if extended {
+        flags |= KeyboardFlags::EXTENDED;
+    }
+    FastPathInputEvent::KeyboardEvent(flags, scancode)
 }

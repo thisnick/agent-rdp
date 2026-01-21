@@ -1,5 +1,6 @@
 //! Request types for CLI to daemon communication.
 
+use crate::automation::AutomateRequest;
 use serde::{Deserialize, Serialize};
 
 /// A request from the CLI to the daemon.
@@ -29,6 +30,9 @@ pub enum Request {
 
     /// Drive mapping operation.
     Drive(DriveRequest),
+
+    /// UI Automation operation.
+    Automate(AutomateRequest),
 
     /// Get session info.
     SessionInfo,
@@ -77,6 +81,30 @@ pub struct ConnectRequest {
     /// Drives to map at connect time.
     #[serde(default)]
     pub drives: Vec<DriveMapping>,
+
+    /// Enable Windows UI Automation.
+    #[serde(default)]
+    pub enable_win_automation: bool,
+
+    /// WebSocket streaming port (0 = disabled).
+    #[serde(default)]
+    pub stream_port: u16,
+
+    /// Streaming frame rate (default: 10).
+    #[serde(default = "default_stream_fps")]
+    pub stream_fps: u32,
+
+    /// Streaming JPEG quality 0-100 (default: 80).
+    #[serde(default = "default_stream_quality")]
+    pub stream_quality: u8,
+}
+
+fn default_stream_fps() -> u32 {
+    10
+}
+
+fn default_stream_quality() -> u8 {
+    80
 }
 
 impl Default for ConnectRequest {
@@ -90,6 +118,10 @@ impl Default for ConnectRequest {
             width: 1280,
             height: 800,
             drives: Vec::new(),
+            enable_win_automation: false,
+            stream_port: 0,
+            stream_fps: default_stream_fps(),
+            stream_quality: default_stream_quality(),
         }
     }
 }
@@ -239,6 +271,8 @@ mod tests {
             width: 1920,
             height: 1080,
             drives: vec![],
+            enable_win_automation: false,
+            ..Default::default()
         });
 
         let json = serde_json::to_string(&req).unwrap();
@@ -273,6 +307,8 @@ mod tests {
                     name: "Shared".to_string(),
                 },
             ],
+            enable_win_automation: false,
+            ..Default::default()
         });
 
         let json = serde_json::to_string(&req).unwrap();

@@ -10,6 +10,7 @@ A CLI tool for AI agents to control Windows Remote Desktop sessions, built on [I
 - **Keyboard input** - Type text, press key combinations (Ctrl+C, Alt+Tab, etc.)
 - **Clipboard sync** - Copy/paste text between local machine and remote Windows
 - **Drive mapping** - Map local directories as network drives on the remote machine
+- **UI Automation** - Interact with Windows applications via accessibility API (click, fill, inspect)
 - **JSON output** - Structured output for AI agent consumption
 - **Session management** - Multiple named sessions with automatic daemon lifecycle
 
@@ -134,6 +135,40 @@ agent-rdp drive list
 ```
 
 On the remote Windows machine, mapped drives appear in File Explorer as network locations.
+
+### UI Automation
+
+Enable Windows UI Automation to interact with applications programmatically:
+
+```bash
+# Connect with automation enabled
+agent-rdp connect --host 192.168.1.100 -u Admin -p secret --enable-win-automation
+
+# Take an accessibility tree snapshot
+agent-rdp automate snapshot
+
+# Click elements by selector
+agent-rdp automate click "#SaveButton"     # By automation ID
+agent-rdp automate click "@5"              # By ref number from snapshot
+
+# Fill text fields
+agent-rdp automate fill ".Edit" "Hello World"
+
+# Window operations
+agent-rdp automate window list
+agent-rdp automate window focus "#Notepad"
+
+# Run PowerShell commands
+agent-rdp automate run "Get-Process" --wait
+```
+
+**Selector Types:**
+- `@5` - Reference number from snapshot
+- `#SaveButton` - Automation ID
+- `.Edit` - Win32 class name
+- `File` - Element name (exact match)
+
+For detailed documentation on automation, see [docs/AUTOMATION.md](docs/AUTOMATION.md).
 
 ### Session Management
 

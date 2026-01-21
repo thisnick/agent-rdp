@@ -100,6 +100,64 @@ agent-rdp --session work screenshot       # Use named session
 agent-rdp wait 2000                       # Wait 2 seconds
 ```
 
+### UI Automation
+```bash
+# Connect with automation enabled
+agent-rdp connect --host 192.168.1.100 -u Admin -p secret --enable-win-automation
+
+# Snapshot - get accessibility tree
+agent-rdp automate snapshot               # Full desktop tree
+agent-rdp automate snapshot --refs        # Include element reference numbers
+agent-rdp automate snapshot --max-depth 5 # Limit tree depth
+agent-rdp automate snapshot --scope window --window "#Notepad"
+
+# Element operations (use selectors: @ref, #automationId, .className, or name)
+agent-rdp automate click "#SaveButton"    # Click by automation ID
+agent-rdp automate click "@5"             # Click by ref number from snapshot
+agent-rdp automate double-click <selector>
+agent-rdp automate right-click <selector>
+agent-rdp automate focus <selector>
+agent-rdp automate get <selector>         # Get element properties
+
+# Text input
+agent-rdp automate fill <selector> "text" # Clear and fill text
+agent-rdp automate clear <selector>       # Just clear
+
+# Form controls
+agent-rdp automate select <selector> "Item"  # ComboBox/ListBox
+agent-rdp automate check <selector>          # CheckBox
+agent-rdp automate check <selector> --uncheck
+
+# Scrolling
+agent-rdp automate scroll <selector> --direction down --amount 3
+
+# Window operations
+agent-rdp automate window list
+agent-rdp automate window focus "#Notepad"
+agent-rdp automate window maximize
+agent-rdp automate window minimize
+agent-rdp automate window restore
+agent-rdp automate window close "#Notepad"
+
+# Run PowerShell commands
+agent-rdp automate run "Get-Process" --wait
+agent-rdp automate run "notepad.exe"
+
+# Wait for element
+agent-rdp automate wait-for <selector> --timeout 5000
+agent-rdp automate wait-for <selector> --state visible
+
+# Status
+agent-rdp automate status
+```
+
+**Selector syntax:**
+- `@5` - Reference number from snapshot
+- `#SaveButton` - Automation ID
+- `.Edit` - Win32 class name
+- `File` - Element name (exact match)
+- `~Save*` - Name with wildcard
+
 ## JSON output
 
 Add `--json` for machine-readable output:
@@ -136,6 +194,35 @@ agent-rdp keyboard press "win+r"
 agent-rdp wait 500
 agent-rdp keyboard type "\\\\tsclient\\Transfer"
 agent-rdp keyboard press enter
+```
+
+## Example: Automate Notepad with UI Automation
+
+```bash
+# Connect with automation enabled
+agent-rdp connect --host 192.168.1.100 -u Admin -p secret --enable-win-automation
+
+# Open Notepad
+agent-rdp automate run "notepad.exe"
+agent-rdp wait 2000
+
+# Get accessibility snapshot to find elements
+agent-rdp automate snapshot --refs
+
+# Type text into the edit control
+agent-rdp automate fill ".Edit" "Hello from automation!"
+
+# Use File menu to save
+agent-rdp automate click "File"           # Click menu by name
+agent-rdp wait 500
+agent-rdp automate click "Save As..."     # Click menu item
+
+# Wait for Save dialog
+agent-rdp automate wait-for "#FileNameControlHost" --timeout 5000
+
+# Fill filename and save
+agent-rdp automate fill "#FileNameControlHost" "test.txt"
+agent-rdp automate click "#1"             # Save button
 ```
 
 ## Environment variables
