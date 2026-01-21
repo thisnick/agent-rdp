@@ -9,7 +9,7 @@ pub mod handlers;
 pub mod ipc_server;
 pub mod ocr;
 pub mod rdp_session;
-pub mod rdpdr_backend;
+pub mod rdpdr;
 pub mod ws_input;
 pub mod ws_server;
 
