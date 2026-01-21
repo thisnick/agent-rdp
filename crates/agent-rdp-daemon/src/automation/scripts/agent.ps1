@@ -21,6 +21,8 @@ $script:RefMap = @{}  # ref number -> AutomationElement mapping
 $script:SnapshotId = $null
 $script:Version = "1.0.0"
 $script:LogPath = "$BasePath\agent.log"
+# Local log path on Windows machine for debugging when RDPDR is unreliable
+$script:LocalLogPath = "$env:TEMP\agent-rdp-automation.log"
 
 # ============ LOGGING ============
 
@@ -28,6 +30,13 @@ function Write-Log {
     param([string]$Message, [string]$Level = "INFO")
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff"
     $logEntry = "[$timestamp] [$Level] $Message"
+
+    # Always write to local log first (reliable, on Windows machine)
+    try {
+        Add-Content -Path $script:LocalLogPath -Value $logEntry -ErrorAction SilentlyContinue
+    } catch {}
+
+    # Also try to write to RDPDR log (may fail if drive mapping has issues)
     try {
         Add-Content -Path $script:LogPath -Value $logEntry -ErrorAction SilentlyContinue
     } catch {}
@@ -64,6 +73,7 @@ function Write-Handshake {
 
 function Start-Agent {
     Write-Log "Agent starting, BasePath=$BasePath"
+    Write-Log "Local log path: $script:LocalLogPath"
     Write-Log "Looking for requests in: $BasePath\requests"
     Write-Log "Writing responses to: $BasePath\responses"
 
