@@ -8,8 +8,18 @@ param(
 
 # ============ SETUP ============
 
-# Set window title for easy identification
+# Set window title for easy identification (visible briefly before hiding)
 $Host.UI.RawUI.WindowTitle = "agent-rdp automation"
+
+# Hide console window completely (no taskbar icon)
+Add-Type -Name Window -Namespace Console -MemberDefinition '
+[DllImport("Kernel32.dll")]
+public static extern IntPtr GetConsoleWindow();
+[DllImport("user32.dll")]
+public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);
+'
+$consolePtr = [Console.Window]::GetConsoleWindow()
+[Console.Window]::ShowWindow($consolePtr, 0) | Out-Null  # 0 = SW_HIDE
 
 # Load UI Automation assemblies
 Add-Type -AssemblyName UIAutomationClient
