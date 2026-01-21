@@ -9,7 +9,7 @@ use agent_rdp_protocol::{
 };
 use tokio::fs;
 use tokio::time::sleep;
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, trace};
 use uuid::Uuid;
 
 /// Number of consecutive failures before suggesting reconnection.
@@ -128,19 +128,21 @@ impl FileIpc {
             params,
         };
 
-        // Write request directly (local filesystem, no RDPDR issues)
+        // Write request atomically: write to .tmp first, then rename
+        // This prevents PowerShell from reading a partially-written file
         let request_path = self.requests_dir.join(format!("req_{}.json", request_id));
+        let tmp_path = self.requests_dir.join(format!("req_{}.tmp", request_id));
 
         let json = serde_json::to_string_pretty(&ipc_request)?;
-        debug!("Writing request to: {:?}", request_path);
-        fs::write(&request_path, &json).await?;
+        debug!("Writing request to: {:?} (via temp file)", request_path);
+        fs::write(&tmp_path, &json).await?;
+        fs::rename(&tmp_path, &request_path).await?;
 
         debug!("Sent automation request {} ({}) to {:?}", request_id, ipc_request.command, request_path);
 
         // Wait for response
-        // NOTE: Consumer deletes - PowerShell deletes request after reading,
-        // Rust deletes response after reading
-        let response = match self.wait_for_response(&request_id, &request_path).await {
+        // NOTE: PowerShell handles all file cleanup to avoid RDPDR race conditions
+        let response = match self.wait_for_response(&request_id).await {
             Ok(resp) => {
                 // Success - reset failure counter
                 self.reset_failures();
@@ -195,9 +197,7 @@ impl FileIpc {
     }
 
     /// Wait for a response file to appear.
-    ///
-    /// On timeout, cleans up the orphaned request file to prevent accumulation.
-    async fn wait_for_response(&self, request_id: &str, request_path: &std::path::Path) -> anyhow::Result<FileIpcResponse> {
+    async fn wait_for_response(&self, request_id: &str) -> anyhow::Result<FileIpcResponse> {
         let response_path = self.responses_dir.join(format!("res_{}.json", request_id));
         let poll_interval = Duration::from_millis(50);
         let start = std::time::Instant::now();
@@ -211,11 +211,8 @@ impl FileIpc {
 
                 match serde_json::from_str::<FileIpcResponse>(content) {
                     Ok(response) => {
-                        // Clean up response file
-                        if let Err(e) = fs::remove_file(&response_path).await {
-                            warn!("Failed to clean up response file: {}", e);
-                        }
-
+                        // Don't delete files from Rust side - let PowerShell handle cleanup
+                        // to avoid race conditions with RDPDR
                         trace!("Received automation response {}", request_id);
                         return Ok(response);
                     }
@@ -226,7 +223,6 @@ impl FileIpc {
 
                         // Check timeout before retrying
                         if start.elapsed() > self.timeout {
-                            self.cleanup_orphaned_request(request_path).await;
                             error!("Timeout waiting for automation response {} (last error: {})", request_id, e);
                             anyhow::bail!("Timeout waiting for automation agent response");
                         }
@@ -236,7 +232,6 @@ impl FileIpc {
             }
 
             if start.elapsed() > self.timeout {
-                self.cleanup_orphaned_request(request_path).await;
                 error!("Timeout waiting for automation response {}", request_id);
                 anyhow::bail!("Timeout waiting for automation agent response");
             }
@@ -245,35 +240,14 @@ impl FileIpc {
         }
     }
 
-    /// Clean up an orphaned request file on timeout.
+    /// Clean up IPC state.
     ///
-    /// This prevents request files from accumulating when the PowerShell agent
-    /// is not responding (e.g., RDPDR channel is dead).
-    async fn cleanup_orphaned_request(&self, request_path: &std::path::Path) {
-        if request_path.exists() {
-            debug!("Cleaning up orphaned request file: {:?}", request_path);
-            if let Err(e) = fs::remove_file(request_path).await {
-                warn!("Failed to clean up orphaned request file: {}", e);
-            }
-        }
-    }
-
-    /// Clean up all request and response files.
+    /// Note: We don't delete files from the Rust side to avoid RDPDR race conditions.
+    /// The PowerShell agent handles file cleanup, and the session temp directory
+    /// is removed when the session ends.
     pub async fn cleanup(&self) -> anyhow::Result<()> {
-        // Remove request files
-        if let Ok(mut entries) = fs::read_dir(&self.requests_dir).await {
-            while let Ok(Some(entry)) = entries.next_entry().await {
-                let _ = fs::remove_file(entry.path()).await;
-            }
-        }
-
-        // Remove response files
-        if let Ok(mut entries) = fs::read_dir(&self.responses_dir).await {
-            while let Ok(Some(entry)) = entries.next_entry().await {
-                let _ = fs::remove_file(entry.path()).await;
-            }
-        }
-
+        // Reset failure counter
+        self.reset_failures();
         Ok(())
     }
 }
