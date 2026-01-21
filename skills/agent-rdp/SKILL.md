@@ -19,7 +19,7 @@ agent-rdp disconnect                                 # Disconnect
 ## Core workflow
 
 1. Connect: `agent-rdp connect --host <ip> --username <user> --password <pass>`
-2. Screenshot: `agent-rdp screenshot --base64` (returns base64 image)
+2. Screenshot: `agent-rdp screenshot -o screen.png` (saves to file)
 3. Interact using mouse/keyboard commands with screen coordinates
 4. Re-screenshot after actions to verify results
 
@@ -37,10 +37,8 @@ agent-rdp disconnect
 ### Screenshot
 ```bash
 agent-rdp screenshot                      # Save to ./screenshot.png
-agent-rdp screenshot --output desktop.png # Save to specific file
-agent-rdp screenshot --base64             # Output as base64
+agent-rdp screenshot -o desktop.png       # Save to specific file
 agent-rdp screenshot --format jpeg        # JPEG format
-agent-rdp --json screenshot --base64      # JSON output with base64
 ```
 
 ### Mouse
@@ -111,6 +109,7 @@ agent-rdp automate snapshot -i             # Interactive elements only
 agent-rdp automate snapshot -c             # Compact (remove empty elements)
 agent-rdp automate snapshot -d 5           # Limit depth to 5 levels
 agent-rdp automate snapshot -s "~*Notepad*"# Scope to a window/element
+agent-rdp automate snapshot -f             # Start from focused element
 agent-rdp automate snapshot -i -c -d 3     # Combine options
 
 # Element operations (use selectors: @eN, #automationId, .className, or name)
@@ -141,9 +140,11 @@ agent-rdp automate window minimize
 agent-rdp automate window restore
 agent-rdp automate window close "~*Notepad*"
 
-# Run PowerShell commands
-agent-rdp automate run "Get-Process" --wait
-agent-rdp automate run "notepad.exe"
+# Run commands/apps (best way to open apps)
+agent-rdp automate run "notepad.exe"                    # Open Notepad
+agent-rdp automate run "Start-Process ms-settings:" --wait  # Open Settings
+agent-rdp automate run "calc.exe"                       # Open Calculator
+agent-rdp automate run "Get-Process" --wait             # PowerShell command
 
 # Wait for element
 agent-rdp automate wait-for <selector> --timeout 5000
@@ -172,9 +173,9 @@ agent-rdp automate status
 
 Add `--json` for machine-readable output:
 ```bash
-agent-rdp --json screenshot --base64
 agent-rdp --json clipboard get
 agent-rdp --json session info
+agent-rdp --json automate snapshot
 ```
 
 ## Example: Open PowerShell and run command
@@ -254,4 +255,28 @@ agent-rdp --stream-port 9224 connect --host 192.168.1.100 -u Admin -p secret
 agent-rdp view --port 9224
 
 # Or manually access WebSocket at ws://localhost:9224 (broadcasts JPEG frames)
+```
+
+## Known limitations
+
+### Start menu and search flyout are not accessible via UI Automation
+
+The Windows 11 Start menu and search flyout use a WebView-based UI that does not expose accessibility elements to the UI Automation API. To open applications:
+
+**Instead of searching via Start menu, use `automate run`:**
+```bash
+# Open apps directly via run command
+agent-rdp automate run "notepad.exe"
+agent-rdp automate run "calc.exe"
+agent-rdp automate run "Start-Process ms-settings:" --wait   # Settings
+agent-rdp automate run "Start-Process ms-settings:display" --wait  # Display settings
+agent-rdp automate run "explorer.exe C:\\"                   # File Explorer
+```
+
+**Or use keyboard shortcuts:**
+```bash
+agent-rdp keyboard press "win+r"          # Open Run dialog (accessible)
+agent-rdp wait 500
+agent-rdp keyboard type "notepad"
+agent-rdp keyboard press enter
 ```
