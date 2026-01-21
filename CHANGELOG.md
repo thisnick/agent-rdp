@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.2.3](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.2.2...agent-rdp-v0.2.3) (2026-01-21)
+
+
+### Bug Fixes
+
+* sync Cargo.toml version and add release-please marker ([ed43da7](https://github.com/thisnick/agent-rdp/commit/ed43da710134135ea845b72699c57d9039ca1d07))
+
+
+### Refactoring
+
+* split rdpdr_backend.rs and add ocrs documentation ([bf9dbc5](https://github.com/thisnick/agent-rdp/commit/bf9dbc5b9856a84aa12d3f63a3db63df8ec37547))
+* split rdpdr_backend.rs into smaller modules ([e98bccd](https://github.com/thisnick/agent-rdp/commit/e98bccd525767fc560bdee2767dc6c0c45b8bef1))
+
+
+### Documentation
+
+* add automation TypeScript API and architecture explanation ([bd1ab85](https://github.com/thisnick/agent-rdp/commit/bd1ab85bece551eb2ddb8f5b80358a75eb9d01f4))
+* add automation TypeScript API and architecture explanation ([107e672](https://github.com/thisnick/agent-rdp/commit/107e672f4743ebc6b7ddbd3c53012cdb4a7277e8))
+* mention ocrs library for OCR ([a35a8a4](https://github.com/thisnick/agent-rdp/commit/a35a8a45e7ae0e995e89a53a167ccc35d348e742))
+
 ## [0.2.2](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.2.1...agent-rdp-v0.2.2) (2026-01-21)
 
 
