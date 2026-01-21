@@ -6,6 +6,7 @@ pub mod connect;
 pub mod disconnect;
 pub mod drive;
 pub mod keyboard;
+pub mod locate;
 pub mod mouse;
 pub mod screenshot;
 pub mod scroll;

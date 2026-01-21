@@ -154,6 +154,17 @@ impl Output {
                     println!("Process ID: {}", pid);
                 }
             }
+            ResponseData::LocateResult(result) => {
+                if result.matches.is_empty() {
+                    println!("No matches found ({} words detected)", result.total_words);
+                } else {
+                    println!("Found {} match(es):", result.matches.len());
+                    for m in &result.matches {
+                        println!("  '{}' at ({}, {}) size {}x{} - center: ({}, {})",
+                            m.text, m.x, m.y, m.width, m.height, m.center_x, m.center_y);
+                    }
+                }
+            }
         }
     }
 

@@ -11,6 +11,7 @@ A CLI tool for AI agents to control Windows Remote Desktop sessions, built on [I
 - **Clipboard sync** - Copy/paste text between local machine and remote Windows
 - **Drive mapping** - Map local directories as network drives on the remote machine
 - **UI Automation** - Interact with Windows applications via accessibility API (click, fill, inspect)
+- **OCR text location** - Find text on screen using OCR when UI Automation isn't available
 - **JSON output** - Structured output for AI agent consumption
 - **Session management** - Multiple named sessions with automatic daemon lifecycle
 
@@ -20,6 +21,12 @@ A CLI tool for AI agents to control Windows Remote Desktop sessions, built on [I
 
 ```bash
 npm install agent-rdp
+```
+
+### As a Claude Code skill
+
+```bash
+npx add-skill https://github.com/thisnick/agent-rdp
 ```
 
 ### From source
@@ -105,6 +112,32 @@ agent-rdp scroll up --amount 3
 agent-rdp scroll down --amount 5
 agent-rdp scroll left
 agent-rdp scroll right
+```
+
+### Locate (OCR)
+
+Find text on screen using OCR. Useful when UI Automation can't access certain elements (WebView content, some dialogs).
+
+```bash
+# Find lines containing text
+agent-rdp locate "Cancel"
+
+# Pattern matching (glob-style)
+agent-rdp locate "Save*" --pattern
+
+# Get all text on screen
+agent-rdp locate --all
+
+# JSON output
+agent-rdp locate "OK" --json
+```
+
+Returns text lines with coordinates for clicking:
+```
+Found 1 line(s) containing 'Cancel':
+  'Cancel Button' at (650, 420) size 80x14 - center: (690, 427)
+
+To click the first match: agent-rdp mouse click 690 427
 ```
 
 ### Clipboard
@@ -313,6 +346,15 @@ await rdp.scroll.up({ x: 500, y: 300 });  // Scroll at position
 // Clipboard
 await rdp.clipboard.set({ text: 'text to copy' });
 const text = await rdp.clipboard.get();
+
+// Locate text using OCR
+const matches = await rdp.locate('Cancel');
+if (matches.length > 0) {
+  await rdp.mouse.click({ x: matches[0].center_x, y: matches[0].center_y });
+}
+
+// Get all text on screen
+const allText = await rdp.locateAll();
 
 // Drives
 const drives = await rdp.drives.list();

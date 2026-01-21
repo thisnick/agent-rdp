@@ -60,6 +60,9 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
         Commands::Automate(args) => {
             cli::commands::automate::run(&cli.session, args, &output, cli.timeout).await
         }
+        Commands::Locate(args) => {
+            cli::commands::locate::run(&cli.session, args, &output, cli.timeout).await
+        }
         Commands::Session(args) => {
             cli::commands::session::run(&cli.session, args, &output, cli.timeout).await
         }

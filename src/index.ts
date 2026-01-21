@@ -38,6 +38,7 @@ import {
   KeyboardTypeOptions,
   KeyboardPressOptions,
   ClipboardSetOptions,
+  OcrMatch,
   Request,
   Response,
   RdpError,
@@ -300,6 +301,68 @@ export class RdpSession {
       pid: data.pid,
       uptime_secs: data.uptime_secs,
     };
+  }
+
+  /**
+   * Locate text on screen using OCR.
+   * Searches within full lines of text and returns matching lines.
+   *
+   * @param text Text to search for (searches within full lines)
+   * @param options Search options
+   * @param options.pattern Use glob-style pattern matching (* and ?)
+   * @param options.caseSensitive Case-sensitive matching (default: false)
+   * @returns Array of matching text lines with coordinates
+   *
+   * @example
+   * ```typescript
+   * // Find lines containing text (e.g., "Non HDR - File Explorer")
+   * const matches = await rdp.locate('Non HDR');
+   * if (matches.length > 0) {
+   *   await rdp.mouse.click({ x: matches[0].center_x, y: matches[0].center_y });
+   * }
+   *
+   * // Pattern matching
+   * const saveButtons = await rdp.locate('Save*', { pattern: true });
+   * ```
+   */
+  async locate(
+    text: string,
+    options: { pattern?: boolean; caseSensitive?: boolean } = {},
+  ): Promise<OcrMatch[]> {
+    const response = await this._send({
+      type: 'locate',
+      text,
+      pattern: options.pattern ?? false,
+      ignore_case: !(options.caseSensitive ?? false),
+      all: false,
+    });
+
+    const data = response.data as { matches: OcrMatch[] };
+    return data.matches ?? [];
+  }
+
+  /**
+   * Get all text lines on screen using OCR.
+   *
+   * @returns Array of all text lines with coordinates
+   *
+   * @example
+   * ```typescript
+   * const allLines = await rdp.locateAll();
+   * for (const line of allLines) {
+   *   console.log(`"${line.text}" at (${line.center_x}, ${line.center_y})`);
+   * }
+   * ```
+   */
+  async locateAll(): Promise<OcrMatch[]> {
+    const response = await this._send({
+      type: 'locate',
+      text: '',
+      all: true,
+    });
+
+    const data = response.data as { matches: OcrMatch[] };
+    return data.matches ?? [];
   }
 
   /**

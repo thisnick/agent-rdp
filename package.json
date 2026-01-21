@@ -22,7 +22,8 @@
   "files": [
     "bin",
     "scripts",
-    "dist"
+    "dist",
+    "models"
   ],
   "scripts": {
     "postinstall": "node scripts/postinstall.cjs",

@@ -232,6 +232,32 @@ export interface AutomateRequest {
   [key: string]: unknown;
 }
 
+// --- Locate (OCR) Request Types ---
+
+export interface LocateRequest {
+  type: 'locate';
+  text?: string;
+  pattern?: boolean;
+  ignore_case?: boolean;
+  all?: boolean;
+}
+
+export interface OcrMatch {
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  center_x: number;
+  center_y: number;
+}
+
+export interface LocateResult {
+  type: 'locate_result';
+  matches: OcrMatch[];
+  total_words: number;
+}
+
 export type Request =
   | ConnectRequest
   | ScreenshotRequest
@@ -243,7 +269,8 @@ export type Request =
   | DisconnectRequest
   | SessionInfoRequest
   | PingRequest
-  | AutomateRequest;
+  | AutomateRequest
+  | LocateRequest;
 
 // --- Response Types ---
 
@@ -323,7 +350,8 @@ export type ResponseData =
   | ResponseClipboard
   | ResponseSessionInfo
   | ResponseDriveList
-  | ResponsePong;
+  | ResponsePong
+  | LocateResult;
 
 export interface Response {
   success: boolean;

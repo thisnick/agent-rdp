@@ -57,6 +57,10 @@ uuid = { workspace = true }
 tokio-tungstenite = { workspace = true }
 futures-util = { workspace = true }
 
+# OCR
+ocrs = { workspace = true }
+rten = { workspace = true }
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true }
 

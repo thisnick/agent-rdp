@@ -334,5 +334,9 @@ async fn process_request(
         Request::Automate(action) => {
             handlers::automate::handle(rdp_session, automation_state, action).await
         }
+
+        Request::Locate(params) => {
+            handlers::locate::handle(rdp_session, params).await
+        }
     }
 }
