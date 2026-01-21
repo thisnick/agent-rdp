@@ -21,12 +21,10 @@
   },
   "files": [
     "bin",
-    "scripts",
     "dist",
     "models"
   ],
   "scripts": {
-    "postinstall": "node scripts/postinstall.cjs",
     "build:ts": "tsc",
     "build": "cargo build --release && node scripts/copy-native.cjs",
     "build:all": "node scripts/build-all.cjs",
