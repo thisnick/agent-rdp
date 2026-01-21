@@ -18,10 +18,7 @@
         {"type": "ci", "section": "CI", "hidden": true}
       ],
       "extra-files": [
-        "Cargo.toml",
-        "crates/agent-rdp/Cargo.toml",
-        "crates/agent-rdp-daemon/Cargo.toml",
-        "crates/agent-rdp-protocol/Cargo.toml"
+        "Cargo.toml"
       ]
     }
   }
