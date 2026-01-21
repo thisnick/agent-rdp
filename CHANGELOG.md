@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.2](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.2.1...agent-rdp-v0.2.2) (2026-01-21)
+
+
+### Features
+
+* add OCR-based text location with locate command ([7a90d3c](https://github.com/thisnick/agent-rdp/commit/7a90d3c0ce960e599a8170940279890deb548ee1))
+* Windows UI Automation and OCR text location ([73ff0d1](https://github.com/thisnick/agent-rdp/commit/73ff0d13ce332728fcbcc914782b5a01df2bc975))
+
+
+### Bug Fixes
+
+* add local logging for PowerShell agent debugging ([a272f2e](https://github.com/thisnick/agent-rdp/commit/a272f2e4635b942dec53228a9b2ebc1338ba70af))
+* make request writes atomic and remove Rust-side file deletion ([e2c72e8](https://github.com/thisnick/agent-rdp/commit/e2c72e82e50b1657d2c8f10e0ebcd7dcf8dd3cef))
+* remove postinstall script since binaries are bundled ([f6f57ba](https://github.com/thisnick/agent-rdp/commit/f6f57bab89263d06521cf8a0bb00373232affabf))
+* remove truncation of name and value in snapshot output ([2e5b1fc](https://github.com/thisnick/agent-rdp/commit/2e5b1fcc15e9bd9122d23b8ab87f0a5da2dafa38))
+
 ## [0.2.1](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.2.0...agent-rdp-v0.2.1) (2026-01-21)
 
 
