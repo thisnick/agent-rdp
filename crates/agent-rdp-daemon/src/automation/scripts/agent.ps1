@@ -8,6 +8,9 @@ param(
 
 # ============ SETUP ============
 
+# Set window title for easy identification
+$Host.UI.RawUI.WindowTitle = "agent-rdp automation"
+
 # Load UI Automation assemblies
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
