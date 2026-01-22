@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.3.0...agent-rdp-v0.3.1) (2026-01-22)
+
+
+### Bug Fixes
+
+* improve keyboard typing reliability and release locks during sleeps ([50835c2](https://github.com/thisnick/agent-rdp/commit/50835c2a50f2c585fa5414556e0e4b2a0f90653c))
+* improve keyboard typing reliability and release locks during sleeps ([5b0a066](https://github.com/thisnick/agent-rdp/commit/5b0a06695bef15f4a63a258db1c302bf78a51f55))
+
 ## [0.3.0](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.2.3...agent-rdp-v0.3.0) (2026-01-22)
 
 
