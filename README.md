@@ -353,13 +353,13 @@ await rdp.clipboard.set({ text: 'text to copy' });
 const text = await rdp.clipboard.get();
 
 // Locate text using OCR
-const matches = await rdp.locate('Cancel');
+const matches = await rdp.locate({ text: 'Cancel' });
 if (matches.length > 0) {
   await rdp.mouse.click({ x: matches[0].center_x, y: matches[0].center_y });
 }
 
 // Get all text on screen
-const allText = await rdp.locateAll();
+const allText = await rdp.locate({ all: true });
 
 // Automation (requires --enable-win-automation at connect)
 const snapshot = await rdp.automation.snapshot({ interactive: true });
