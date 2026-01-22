@@ -16,8 +16,107 @@ pub async fn handle(
     rdp_session: &Arc<Mutex<Option<RdpSession>>>,
     action: KeyboardRequest,
 ) -> Response {
-    let session = rdp_session.lock().await;
+    // For typing text, send one character at a time with delays for reliability
+    if let KeyboardRequest::Type { ref text } = action {
+        debug!("Typing {} characters: {:?}", text.len(), text);
 
+        const CHAR_DELAY_MS: u64 = 100;
+
+        for ch in text.chars() {
+            let code = ch as u16;
+            let events = vec![
+                FastPathInputEvent::UnicodeKeyboardEvent(KeyboardFlags::empty(), code),
+                FastPathInputEvent::UnicodeKeyboardEvent(KeyboardFlags::RELEASE, code),
+            ];
+
+            {
+                let session = rdp_session.lock().await;
+                let rdp = match session.as_ref() {
+                    Some(rdp) => rdp,
+                    None => {
+                        return Response::error(
+                            ErrorCode::NotConnected,
+                            "Not connected to an RDP server",
+                        );
+                    }
+                };
+                if let Err(e) = rdp.send_input(events).await {
+                    return Response::error(ErrorCode::InternalError, e.to_string());
+                }
+            }
+            sleep(Duration::from_millis(CHAR_DELAY_MS)).await;
+        }
+        return Response::ok();
+    }
+
+    // For key combinations, release lock between each key event
+    if let KeyboardRequest::Press { ref keys } = action {
+        debug!("Pressing key combination: {}", keys);
+        let key_infos = match parse_key_combination(keys) {
+            Ok(infos) => infos,
+            Err(e) => {
+                return Response::error(ErrorCode::InvalidRequest, e);
+            }
+        };
+
+        // Press all keys down
+        for info in &key_infos {
+            debug!(
+                "Key down: scancode=0x{:02X}, extended={}",
+                info.scancode, info.extended
+            );
+            let event = create_key_event_ext(info.scancode, info.extended, false);
+            {
+                let session = rdp_session.lock().await;
+                let rdp = match session.as_ref() {
+                    Some(rdp) => rdp,
+                    None => {
+                        return Response::error(
+                            ErrorCode::NotConnected,
+                            "Not connected to an RDP server",
+                        );
+                    }
+                };
+                if let Err(e) = rdp.send_input(vec![event]).await {
+                    return Response::error(ErrorCode::InternalError, e.to_string());
+                }
+            }
+            sleep(Duration::from_millis(10)).await;
+        }
+
+        // Small delay before releasing
+        sleep(Duration::from_millis(50)).await;
+
+        // Release all keys in reverse order
+        for info in key_infos.iter().rev() {
+            debug!(
+                "Key up: scancode=0x{:02X}, extended={}",
+                info.scancode, info.extended
+            );
+            let event = create_key_event_ext(info.scancode, info.extended, true);
+            {
+                let session = rdp_session.lock().await;
+                let rdp = match session.as_ref() {
+                    Some(rdp) => rdp,
+                    None => {
+                        return Response::error(
+                            ErrorCode::NotConnected,
+                            "Not connected to an RDP server",
+                        );
+                    }
+                };
+                if let Err(e) = rdp.send_input(vec![event]).await {
+                    return Response::error(ErrorCode::InternalError, e.to_string());
+                }
+            }
+            sleep(Duration::from_millis(10)).await;
+        }
+
+        return Response::ok();
+    }
+
+    // For single key operations (KeyDown/KeyUp), use a scoped lock
+    let session = rdp_session.lock().await;
     let rdp = match session.as_ref() {
         Some(rdp) => rdp,
         None => {
@@ -25,94 +124,35 @@ pub async fn handle(
         }
     };
 
-    // For typing text, send characters one at a time with small delays
-    if let KeyboardRequest::Type { text } = &action {
-        debug!("Typing {} characters: {:?}", text.len(), text);
-        for (i, ch) in text.chars().enumerate() {
-            let code = ch as u16;
-            let events = vec![
-                FastPathInputEvent::UnicodeKeyboardEvent(KeyboardFlags::empty(), code),
-                FastPathInputEvent::UnicodeKeyboardEvent(KeyboardFlags::RELEASE, code),
-            ];
-            debug!("Sending character {} '{}' (unicode {})", i, ch, code);
-            if let Err(e) = rdp.send_input(events).await {
-                return Response::error(ErrorCode::InternalError, e.to_string());
-            }
-            // Small delay between characters to avoid overwhelming the server
-            sleep(Duration::from_millis(10)).await;
-        }
-        return Response::ok();
-    }
-
     let events = match action {
-        KeyboardRequest::Type { text: _ } => {
+        KeyboardRequest::Type { .. } | KeyboardRequest::Press { .. } => {
             // Handled above
             unreachable!()
         }
 
-        KeyboardRequest::Press { keys } => {
-            // Parse key combination like "ctrl+c" or "alt+tab"
-            debug!("Pressing key combination: {}", keys);
-            let key_infos = match parse_key_combination(&keys) {
-                Ok(infos) => infos,
-                Err(e) => {
-                    return Response::error(ErrorCode::InvalidRequest, e);
-                }
-            };
-
-            // Press all keys down
-            for info in &key_infos {
-                debug!("Key down: scancode=0x{:02X}, extended={}", info.scancode, info.extended);
-                let event = create_key_event_ext(info.scancode, info.extended, false);
-                if let Err(e) = rdp.send_input(vec![event]).await {
-                    return Response::error(ErrorCode::InternalError, e.to_string());
-                }
-                sleep(Duration::from_millis(10)).await;
+        KeyboardRequest::KeyDown { key } => match key_to_scancode(&key) {
+            Some((scancode, extended)) => {
+                vec![create_key_event_ext(scancode, extended, false)]
             }
-
-            // Small delay before releasing
-            sleep(Duration::from_millis(50)).await;
-
-            // Release all keys in reverse order
-            for info in key_infos.iter().rev() {
-                debug!("Key up: scancode=0x{:02X}, extended={}", info.scancode, info.extended);
-                let event = create_key_event_ext(info.scancode, info.extended, true);
-                if let Err(e) = rdp.send_input(vec![event]).await {
-                    return Response::error(ErrorCode::InternalError, e.to_string());
-                }
-                sleep(Duration::from_millis(10)).await;
+            None => {
+                return Response::error(
+                    ErrorCode::InvalidRequest,
+                    format!("Unknown key: {}", key),
+                );
             }
+        },
 
-            return Response::ok();
-        }
-
-        KeyboardRequest::KeyDown { key } => {
-            match key_to_scancode(&key) {
-                Some((scancode, extended)) => {
-                    vec![create_key_event_ext(scancode, extended, false)]
-                }
-                None => {
-                    return Response::error(
-                        ErrorCode::InvalidRequest,
-                        format!("Unknown key: {}", key),
-                    );
-                }
+        KeyboardRequest::KeyUp { key } => match key_to_scancode(&key) {
+            Some((scancode, extended)) => {
+                vec![create_key_event_ext(scancode, extended, true)]
             }
-        }
-
-        KeyboardRequest::KeyUp { key } => {
-            match key_to_scancode(&key) {
-                Some((scancode, extended)) => {
-                    vec![create_key_event_ext(scancode, extended, true)]
-                }
-                None => {
-                    return Response::error(
-                        ErrorCode::InvalidRequest,
-                        format!("Unknown key: {}", key),
-                    );
-                }
+            None => {
+                return Response::error(
+                    ErrorCode::InvalidRequest,
+                    format!("Unknown key: {}", key),
+                );
             }
-        }
+        },
     };
 
     match rdp.send_input(events).await {
