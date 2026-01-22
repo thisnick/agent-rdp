@@ -9,29 +9,39 @@ allowed-tools: Bash(agent-rdp:*)
 ## Quick start
 
 ```bash
-agent-rdp connect --host <ip> -u <user> -p <pass>   # Connect to RDP
-agent-rdp screenshot --output desktop.png            # Take screenshot
-agent-rdp mouse click 500 300                        # Click at position
-agent-rdp keyboard type "Hello"                      # Type text
-agent-rdp disconnect                                 # Disconnect
+agent-rdp connect --host <ip> -u <user> -p <pass> --enable-win-automation
+agent-rdp automate snapshot -i              # See interactive elements
+agent-rdp automate invoke "@e5"             # Invoke button by ref
+agent-rdp automate fill "@e7" "Hello"       # Type into field
+agent-rdp disconnect
 ```
 
 ## Core workflow
 
-### With UI Automation (recommended)
-
 1. Connect with automation: `agent-rdp connect --host <ip> -u <user> -p <pass> --enable-win-automation`
-2. Snapshot: `agent-rdp automate snapshot -i` (get accessibility tree)
-3. Act: `agent-rdp automate click @e5` (use ref from snapshot)
+2. Snapshot: `agent-rdp automate snapshot -i` (get accessibility tree with refs)
+3. Act: `agent-rdp automate invoke @e5` or `agent-rdp automate fill @e7 "text"`
 4. Repeat: snapshot → act → snapshot → act...
 
-### Fallback: OCR-based location
+## Troubleshooting
 
-If UI Automation doesn't find the element you need (some dialogs, WebView content, etc.):
+### Element not in snapshot with `-i`
 
-1. Screenshot: `agent-rdp screenshot -o screen.png`
-2. Locate: `agent-rdp locate "Button Text"` (OCR finds text coordinates)
-3. Click: `agent-rdp mouse click <x> <y>` (use center coordinates from locate)
+Try without `-i` flag - some elements aren't marked as interactive but are still actionable:
+```bash
+agent-rdp automate snapshot              # Full tree, no filtering
+agent-rdp automate snapshot -d 5         # Limit depth if too large
+```
+
+### Element not in accessibility tree at all
+
+Some UI elements (WebView content, certain dialogs, toast notifications) don't appear in the accessibility tree. Use OCR as a last resort:
+
+1. Take screenshot to identify what you need: `agent-rdp screenshot -o screen.png`
+2. Use locate to find coordinates: `agent-rdp locate "Button Text"`
+3. Click using returned coordinates: `agent-rdp mouse click <x> <y>`
+
+**Important:** Only use coordinates returned by `locate`. Never guess positions from screenshots.
 
 ## Commands
 
@@ -138,22 +148,22 @@ agent-rdp automate snapshot -s "~*Notepad*"# Scope to a window/element
 agent-rdp automate snapshot -f             # Start from focused element
 agent-rdp automate snapshot -i -c -d 3     # Combine options
 
-# Element operations (use selectors: @eN, #automationId, .className, or name)
-agent-rdp automate click "#SaveButton"    # Click by automation ID
-agent-rdp automate click "@e5"            # Click by ref number (e prefix)
-agent-rdp automate double-click <selector>
-agent-rdp automate right-click <selector>
-agent-rdp automate focus <selector>
+# Pattern-based element operations (use selectors: @eN, #automationId, .className, or name)
+agent-rdp automate invoke "#SaveButton"   # Invoke button (InvokePattern)
+agent-rdp automate invoke "@e5"           # Invoke by ref number
+agent-rdp automate select "@e10"          # Select item (SelectionItemPattern)
+agent-rdp automate select "@e5" --item "Option 1"  # Select item by name in container
+agent-rdp automate toggle "@e7"           # Toggle checkbox (TogglePattern)
+agent-rdp automate toggle "@e7" --state on  # Set specific state
+agent-rdp automate expand "@e3"           # Expand menu/tree (ExpandCollapsePattern)
+agent-rdp automate collapse "@e3"         # Collapse menu/tree
+agent-rdp automate context-menu "@e5"     # Open context menu (Shift+F10)
+agent-rdp automate focus <selector>       # Focus element
 agent-rdp automate get <selector>         # Get element properties
 
 # Text input
-agent-rdp automate fill <selector> "text" # Clear and fill text
+agent-rdp automate fill <selector> "text" # Clear and fill text (ValuePattern)
 agent-rdp automate clear <selector>       # Just clear
-
-# Form controls
-agent-rdp automate select <selector> "Item"  # ComboBox/ListBox
-agent-rdp automate check <selector>          # CheckBox
-agent-rdp automate check <selector> --uncheck
 
 # Scrolling
 agent-rdp automate scroll <selector> --direction down --amount 3
@@ -249,17 +259,17 @@ agent-rdp automate snapshot -i            # Interactive elements only
 # Type text into the edit control (use ref from snapshot)
 agent-rdp automate fill "@e5" "Hello from automation!"
 
-# Use File menu to save
-agent-rdp automate click "File"           # Click menu by name
+# Use File menu to save - expand menu, then invoke menu item
+agent-rdp automate expand "File"          # Expand menu (ExpandCollapsePattern)
 agent-rdp wait 500
-agent-rdp automate click "Save As..."     # Click menu item
+agent-rdp automate invoke "Save As..."    # Invoke menu item
 
 # Wait for Save dialog
 agent-rdp automate wait-for "#FileNameControlHost" --timeout 5000
 
 # Fill filename and save
 agent-rdp automate fill "#FileNameControlHost" "test.txt"
-agent-rdp automate click "#1"             # Save button
+agent-rdp automate invoke "#1"            # Invoke Save button
 ```
 
 ## Environment variables
@@ -293,12 +303,4 @@ agent-rdp automate run "notepad.exe"
 agent-rdp automate run "calc.exe"
 agent-rdp automate run "Start-Process ms-settings:" --wait   # Settings
 agent-rdp automate run "explorer.exe C:\\"                   # File Explorer
-```
-
-### When UI Automation doesn't work
-
-Some UI elements (WebView content, certain dialogs) aren't in the accessibility tree. Use OCR:
-```bash
-agent-rdp locate "Button Text"            # Find the text
-agent-rdp mouse click 672 427             # Click the center coordinates
 ```

@@ -10,7 +10,7 @@ A CLI tool for AI agents to control Windows Remote Desktop sessions, built on [I
 - **Keyboard input** - Type text, press key combinations (Ctrl+C, Alt+Tab, etc.)
 - **Clipboard sync** - Copy/paste text between local machine and remote Windows
 - **Drive mapping** - Map local directories as network drives on the remote machine
-- **UI Automation** - Interact with Windows applications via accessibility API (click, fill, inspect)
+- **UI Automation** - Interact with Windows applications via accessibility API using native patterns (invoke, select, toggle, expand)
 - **OCR text location** - Find text on screen using OCR when UI Automation isn't available
 - **JSON output** - Structured output for AI agent consumption
 - **Session management** - Multiple named sessions with automatic daemon lifecycle
@@ -171,7 +171,7 @@ On the remote Windows machine, mapped drives appear in File Explorer as network 
 
 ### UI Automation
 
-Interact with Windows applications programmatically via the Windows UI Automation API. When enabled, a PowerShell agent is injected into the remote session that captures the accessibility tree and performs actions. Communication between the CLI and the agent uses a mapped drive as an IPC channel.
+Interact with Windows applications programmatically via the Windows UI Automation API using native patterns (InvokePattern, SelectionItemPattern, TogglePattern, etc.). When enabled, a PowerShell agent is injected into the remote session that captures the accessibility tree and performs actions. Communication between the CLI and the agent uses a mapped drive as an IPC channel.
 
 For detailed documentation, see [docs/AUTOMATION.md](docs/AUTOMATION.md).
 
@@ -189,9 +189,13 @@ agent-rdp automate snapshot -d 3            # Limit depth to 3 levels
 agent-rdp automate snapshot -s "~*Notepad*" # Scope to a window/element
 agent-rdp automate snapshot -i -c -d 5      # Combine options
 
-# Click elements by selector (refs use @eN format)
-agent-rdp automate click "#SaveButton"     # By automation ID
-agent-rdp automate click "@e5"             # By ref number from snapshot
+# Pattern-based element operations (refs use @eN format)
+agent-rdp automate invoke "#SaveButton"    # Invoke button (InvokePattern)
+agent-rdp automate invoke "@e5"            # By ref number from snapshot
+agent-rdp automate select "@e10"           # Select item (SelectionItemPattern)
+agent-rdp automate toggle "@e7"            # Toggle checkbox (TogglePattern)
+agent-rdp automate expand "@e3"            # Expand menu (ExpandCollapsePattern)
+agent-rdp automate context-menu "@e5"      # Open context menu (Shift+F10)
 
 # Fill text fields
 agent-rdp automate fill ".Edit" "Hello World"
@@ -359,8 +363,12 @@ const allText = await rdp.locateAll();
 
 // Automation (requires --enable-win-automation at connect)
 const snapshot = await rdp.automation.snapshot({ interactive: true });
-await rdp.automation.click('@e5');           // Click by ref from snapshot
-await rdp.automation.fill('#input', 'text'); // Fill by automation ID
+await rdp.automation.invoke('@e5');          // Invoke button by ref
+await rdp.automation.select('@e10');         // Select item
+await rdp.automation.toggle('@e7');          // Toggle checkbox
+await rdp.automation.expand('@e3');          // Expand menu
+await rdp.automation.contextMenu('@e5');     // Open context menu
+await rdp.automation.fill('#input', 'text'); // Fill text field
 await rdp.automation.run('notepad.exe');     // Run command
 await rdp.automation.waitFor('#SaveButton', { timeout: 5000 });
 

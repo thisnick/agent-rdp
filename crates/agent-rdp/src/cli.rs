@@ -363,28 +363,46 @@ pub enum AutomateAction {
         selector: String,
     },
 
-    /// Click an element
-    Click {
-        /// Element selector
-        selector: String,
-
-        /// Mouse button (left, right, middle)
-        #[arg(long)]
-        button: Option<String>,
-
-        /// Double-click instead of single click
-        #[arg(long)]
-        double: bool,
-    },
-
-    /// Double-click an element
-    DoubleClick {
+    /// Invoke an element (InvokePattern) - for buttons, links, menu items
+    Invoke {
         /// Element selector
         selector: String,
     },
 
-    /// Right-click an element
-    RightClick {
+    /// Select an element or item (SelectionItemPattern) - for list items, radio buttons
+    Select {
+        /// Element selector (item directly, or container if --item is specified)
+        selector: String,
+
+        /// Item name to select within container
+        #[arg(long)]
+        item: Option<String>,
+    },
+
+    /// Toggle an element (TogglePattern) - for checkboxes
+    Toggle {
+        /// Element selector
+        selector: String,
+
+        /// Target state: on or off (omit to just toggle)
+        #[arg(long)]
+        state: Option<String>,
+    },
+
+    /// Expand an element (ExpandCollapsePattern) - for menus, tree items, combo boxes
+    Expand {
+        /// Element selector
+        selector: String,
+    },
+
+    /// Collapse an element (ExpandCollapsePattern)
+    Collapse {
+        /// Element selector
+        selector: String,
+    },
+
+    /// Open context menu for an element (Focus + Shift+F10)
+    ContextMenu {
         /// Element selector
         selector: String,
     },
@@ -402,25 +420,6 @@ pub enum AutomateAction {
     Clear {
         /// Element selector
         selector: String,
-    },
-
-    /// Select an item in a ComboBox or ListBox
-    Select {
-        /// Element selector
-        selector: String,
-
-        /// Item to select
-        item: String,
-    },
-
-    /// Check or uncheck a CheckBox or RadioButton
-    Check {
-        /// Element selector
-        selector: String,
-
-        /// Uncheck instead of check
-        #[arg(long)]
-        uncheck: bool,
     },
 
     /// Scroll an element

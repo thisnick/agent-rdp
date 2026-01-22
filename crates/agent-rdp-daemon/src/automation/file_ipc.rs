@@ -276,18 +276,31 @@ mod tests {
     }
 
     #[test]
-    fn test_serialize_click_request() {
+    fn test_serialize_invoke_request() {
         let ipc = FileIpc::new(PathBuf::from("/tmp/test"));
 
-        let request = AutomateRequest::Click {
+        let request = AutomateRequest::Invoke {
             selector: "@5".to_string(),
-            button: agent_rdp_protocol::AutomationMouseButton::Left,
-            double: false,
         };
 
         let (command, params) = ipc.serialize_request(&request).unwrap();
-        assert_eq!(command, "click");
+        assert_eq!(command, "invoke");
         assert_eq!(params["selector"], "@5");
+    }
+
+    #[test]
+    fn test_serialize_toggle_request() {
+        let ipc = FileIpc::new(PathBuf::from("/tmp/test"));
+
+        let request = AutomateRequest::Toggle {
+            selector: "@5".to_string(),
+            state: Some(true),
+        };
+
+        let (command, params) = ipc.serialize_request(&request).unwrap();
+        assert_eq!(command, "toggle");
+        assert_eq!(params["selector"], "@5");
+        assert_eq!(params["state"], true);
     }
 
     #[tokio::test]

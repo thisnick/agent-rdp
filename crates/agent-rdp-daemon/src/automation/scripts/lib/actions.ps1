@@ -1,16 +1,10 @@
-# actions.ps1 - All automation action functions (click, fill, scroll, etc.)
+# actions.ps1 - All automation action functions using native UI Automation patterns
 
-function Invoke-Click {
+function Invoke-Invoke {
     param($Params)
 
     $element = Find-Element -Selector $Params.selector
     if (-not $element) { throw "Element not found: $($Params.selector)" }
-
-    # Safely get button and double parameters (handle missing properties)
-    $button = "left"
-    $double = $false
-    if ($null -ne $Params.PSObject.Properties['button']) { $button = $Params.button }
-    if ($null -ne $Params.PSObject.Properties['double']) { $double = $Params.double }
 
     # Verify element still exists before interacting
     try {
@@ -19,70 +13,151 @@ function Invoke-Click {
         throw "Element no longer exists (window may have closed)"
     }
 
-    # Try InvokePattern first (for buttons)
-    if ($button -eq "left" -and -not $double) {
-        try {
-            $invokePattern = $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-            if ($invokePattern) {
-                $invokePattern.Invoke()
-                return @{ clicked = $true; method = "invoke" }
-            }
-        } catch {
-            # InvokePattern failed, fall through to mouse click
-            Write-Log "InvokePattern failed: $($_.Exception.Message), falling back to mouse" "WARN"
-        }
-    }
-
-    # Fall back to click at center of bounds
+    # Use InvokePattern
     try {
-        $rect = $element.Current.BoundingRectangle
-        if ($rect.IsEmpty -or $rect.Width -eq 0 -or $rect.Height -eq 0) {
-            throw "Element has no valid bounds (may be offscreen or collapsed)"
+        $invokePattern = $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+        if ($invokePattern) {
+            $invokePattern.Invoke()
+            return @{ invoked = $true; method = "InvokePattern" }
         }
-        $x = [int]($rect.X + $rect.Width / 2)
-        $y = [int]($rect.Y + $rect.Height / 2)
     } catch {
-        throw "Cannot get element bounds: $($_.Exception.Message)"
+        throw "Element does not support InvokePattern: $($_.Exception.Message)"
     }
 
-    [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point($x, $y)
+    throw "Element does not support InvokePattern"
+}
+
+function Invoke-Expand {
+    param($Params)
+
+    $element = Find-Element -Selector $Params.selector
+    if (-not $element) { throw "Element not found: $($Params.selector)" }
+
+    try {
+        $expandPattern = $element.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+        if ($expandPattern) {
+            $expandPattern.Expand()
+            return @{ expanded = $true; method = "ExpandCollapsePattern" }
+        }
+    } catch {
+        throw "Element does not support ExpandCollapsePattern: $($_.Exception.Message)"
+    }
+
+    throw "Element does not support ExpandCollapsePattern"
+}
+
+function Invoke-Collapse {
+    param($Params)
+
+    $element = Find-Element -Selector $Params.selector
+    if (-not $element) { throw "Element not found: $($Params.selector)" }
+
+    try {
+        $expandPattern = $element.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+        if ($expandPattern) {
+            $expandPattern.Collapse()
+            return @{ collapsed = $true; method = "ExpandCollapsePattern" }
+        }
+    } catch {
+        throw "Element does not support ExpandCollapsePattern: $($_.Exception.Message)"
+    }
+
+    throw "Element does not support ExpandCollapsePattern"
+}
+
+function Invoke-ContextMenu {
+    param($Params)
+
+    $element = Find-Element -Selector $Params.selector
+    if (-not $element) { throw "Element not found: $($Params.selector)" }
+
+    # Get the element's bounding rectangle and calculate center point
+    $rect = $element.Current.BoundingRectangle
+    if ($rect.IsEmpty) {
+        throw "Element has no bounding rectangle (may be off-screen or invisible)"
+    }
+
+    $centerX = [int]($rect.X + $rect.Width / 2)
+    $centerY = [int]($rect.Y + $rect.Height / 2)
+
+    # Add Win32 mouse input type if not already defined
+    if (-not ([System.Management.Automation.PSTypeName]'ContextMenuMouse').Type) {
+        Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+public class ContextMenuMouse {
+    [DllImport("user32.dll")]
+    public static extern bool SetCursorPos(int x, int y);
+
+    [DllImport("user32.dll")]
+    public static extern void mouse_event(uint dwFlags, int dx, int dy, uint dwData, UIntPtr dwExtraInfo);
+
+    public const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
+    public const uint MOUSEEVENTF_RIGHTUP = 0x0010;
+}
+"@
+    }
+
+    # Move cursor to element center
+    [ContextMenuMouse]::SetCursorPos($centerX, $centerY)
     Start-Sleep -Milliseconds 50
 
-    switch ($button) {
-        "left" {
-            if ($double) {
-                [MouseInput]::DoubleClick()
+    # Perform right-click
+    [ContextMenuMouse]::mouse_event([ContextMenuMouse]::MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, [UIntPtr]::Zero)
+    Start-Sleep -Milliseconds 50
+    [ContextMenuMouse]::mouse_event([ContextMenuMouse]::MOUSEEVENTF_RIGHTUP, 0, 0, 0, [UIntPtr]::Zero)
+
+    return @{
+        context_menu_opened = $true
+        method = "mouse_right_click"
+        x = $centerX
+        y = $centerY
+    }
+}
+
+function Invoke-Toggle {
+    param($Params)
+
+    $element = Find-Element -Selector $Params.selector
+    if (-not $element) { throw "Element not found: $($Params.selector)" }
+
+    try {
+        $togglePattern = $element.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+        if ($togglePattern) {
+            $previousState = $togglePattern.Current.ToggleState
+
+            # If a specific state is requested
+            if ($null -ne $Params.state) {
+                $targetState = if ($Params.state) {
+                    [System.Windows.Automation.ToggleState]::On
+                } else {
+                    [System.Windows.Automation.ToggleState]::Off
+                }
+
+                # Toggle until we reach the target state (handles tri-state checkboxes)
+                $maxAttempts = 3
+                for ($i = 0; $i -lt $maxAttempts -and $togglePattern.Current.ToggleState -ne $targetState; $i++) {
+                    $togglePattern.Toggle()
+                    Start-Sleep -Milliseconds 50
+                }
             } else {
-                [MouseInput]::LeftClick()
+                # Just toggle
+                $togglePattern.Toggle()
+            }
+
+            return @{
+                toggled = $true
+                previous_state = $previousState.ToString()
+                new_state = $togglePattern.Current.ToggleState.ToString()
+                method = "TogglePattern"
             }
         }
-        "right" { [MouseInput]::RightClick() }
-        "middle" { [MouseInput]::MiddleClick() }
+    } catch {
+        throw "Element does not support TogglePattern: $($_.Exception.Message)"
     }
 
-    return @{ clicked = $true; method = "mouse"; x = $x; y = $y; button = $button; double = $double }
-}
-
-function Invoke-DoubleClick {
-    param($Params)
-    # Create new params with double=true (can't add properties to PSObject from JSON)
-    $clickParams = @{
-        selector = $Params.selector
-        button = "left"
-        double = $true
-    }
-    return Invoke-Click -Params $clickParams
-}
-
-function Invoke-RightClick {
-    param($Params)
-    # Create new params with button=right
-    $clickParams = @{
-        selector = $Params.selector
-        button = "right"
-        double = $false
-    }
-    return Invoke-Click -Params $clickParams
+    throw "Element does not support TogglePattern"
 }
 
 function Invoke-Focus {
@@ -196,9 +271,23 @@ function Invoke-Select {
     $element = Find-Element -Selector $Params.selector
     if (-not $element) { throw "Element not found: $($Params.selector)" }
 
-    # Try SelectionItemPattern
+    # If no item name specified, select the element directly using SelectionItemPattern
+    if (-not $Params.item) {
+        try {
+            $selectPattern = $element.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
+            if ($selectPattern) {
+                $selectPattern.Select()
+                return @{ selected = $true; method = "SelectionItemPattern" }
+            }
+        } catch {
+            throw "Element does not support SelectionItemPattern: $($_.Exception.Message)"
+        }
+        throw "Element does not support SelectionItemPattern"
+    }
+
+    # Item name specified - find and select within container
+    # Try SelectionItemPattern first
     try {
-        # Find the item to select within the parent element
         $itemCondition = New-Object System.Windows.Automation.PropertyCondition(
             [System.Windows.Automation.AutomationElement]::NameProperty, $Params.item)
         $item = $element.FindFirst(
@@ -208,72 +297,47 @@ function Invoke-Select {
             $selectPattern = $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
             if ($selectPattern) {
                 $selectPattern.Select()
-                return @{ selected = $true; item = $Params.item; method = "selection_pattern" }
+                return @{ selected = $true; item = $Params.item; method = "SelectionItemPattern" }
             }
         }
     } catch {}
 
-    # Try ExpandCollapsePattern for combo boxes
+    # Try ExpandCollapsePattern for combo boxes - expand first, then find item
     try {
         $expandPattern = $element.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
         if ($expandPattern) {
             $expandPattern.Expand()
             Start-Sleep -Milliseconds 200
 
-            # Now find and click the item
+            # Now find and select the item
             $itemCondition = New-Object System.Windows.Automation.PropertyCondition(
                 [System.Windows.Automation.AutomationElement]::NameProperty, $Params.item)
             $item = $element.FindFirst(
                 [System.Windows.Automation.TreeScope]::Descendants, $itemCondition)
 
             if ($item) {
-                $invokePattern = $item.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-                if ($invokePattern) {
-                    $invokePattern.Invoke()
-                    return @{ selected = $true; item = $Params.item; method = "expand_invoke" }
-                }
+                # Try SelectionItemPattern first
+                try {
+                    $selectPattern = $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
+                    if ($selectPattern) {
+                        $selectPattern.Select()
+                        return @{ selected = $true; item = $Params.item; method = "ExpandCollapse+SelectionItemPattern" }
+                    }
+                } catch {}
+
+                # Try InvokePattern
+                try {
+                    $invokePattern = $item.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+                    if ($invokePattern) {
+                        $invokePattern.Invoke()
+                        return @{ selected = $true; item = $Params.item; method = "ExpandCollapse+InvokePattern" }
+                    }
+                } catch {}
             }
         }
     } catch {}
 
     throw "Could not select item: $($Params.item)"
-}
-
-function Invoke-Check {
-    param($Params)
-
-    $element = Find-Element -Selector $Params.selector
-    if (-not $element) { throw "Element not found: $($Params.selector)" }
-
-    $uncheck = if ($Params.uncheck) { $Params.uncheck } else { $false }
-
-    try {
-        $togglePattern = $element.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
-        if ($togglePattern) {
-            $currentState = $togglePattern.Current.ToggleState
-            $targetState = if ($uncheck) {
-                [System.Windows.Automation.ToggleState]::Off
-            } else {
-                [System.Windows.Automation.ToggleState]::On
-            }
-
-            if ($currentState -ne $targetState) {
-                $togglePattern.Toggle()
-            }
-
-            return @{
-                checked = -not $uncheck
-                previous_state = $currentState.ToString()
-                new_state = $targetState.ToString()
-            }
-        }
-    } catch {}
-
-    # Fallback: click to toggle
-    $element.SetFocus()
-    [MouseInput]::LeftClick()
-
-    return @{ checked = -not $uncheck; method = "click" }
 }
 
 function Invoke-Scroll {
@@ -496,8 +560,8 @@ function Get-AgentStatus {
         agent_pid = $PID
         version = $script:Version
         capabilities = @(
-            "snapshot", "click", "double_click", "right_click",
-            "focus", "get", "select", "fill", "clear", "check",
+            "snapshot", "invoke", "select", "toggle", "expand", "collapse",
+            "context_menu", "focus", "get", "fill", "clear",
             "scroll", "window", "run", "wait_for", "status"
         )
     }
