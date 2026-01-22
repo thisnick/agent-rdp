@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.2](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.3.1...agent-rdp-v0.3.2) (2026-01-22)
+
+
+### Refactoring
+
+* consolidate locate and locateAll into single locate method ([165edd6](https://github.com/thisnick/agent-rdp/commit/165edd65b0d4cabde3a8550a20d41ca24aa2e713))
+* consolidate locate and locateAll into single locate method ([8336215](https://github.com/thisnick/agent-rdp/commit/83362152a427ce88472d50efad4115602ff551dc))
+
 ## [0.3.1](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.3.0...agent-rdp-v0.3.1) (2026-01-22)
 
 
