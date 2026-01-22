@@ -28,11 +28,14 @@ export interface GetOptions {
   property?: 'name' | 'value' | 'states' | 'bounds' | 'all';
 }
 
-export interface ClickOptions {
-  /** Mouse button: 'left', 'right', or 'middle'. */
-  button?: 'left' | 'right' | 'middle';
-  /** Double-click instead of single click. */
-  double?: boolean;
+export interface SelectOptions {
+  /** Item name to select within container (optional). */
+  item?: string;
+}
+
+export interface ToggleOptions {
+  /** Target state: true=on, false=off. Omit to just toggle. */
+  state?: boolean;
 }
 
 export interface ScrollOptions {
@@ -78,11 +81,20 @@ export interface WaitForOptions {
  * // Compact output with depth limit
  * const compact = await rdp.automation.snapshot({ interactive: true, compact: true, depth: 5 });
  *
- * // Click an element by ref number (use @eN format)
- * await rdp.automation.click('@e5');
+ * // Invoke a button (use @eN format from snapshot)
+ * await rdp.automation.invoke('@e5');
+ *
+ * // Select a list item
+ * await rdp.automation.select('@e10');
+ *
+ * // Toggle a checkbox
+ * await rdp.automation.toggle('@e7', { state: true });
  *
  * // Fill text in an element
  * await rdp.automation.fill('#SearchBox', 'Hello World');
+ *
+ * // Open context menu
+ * await rdp.automation.contextMenu('@e5');
  *
  * // Wait for an element to appear
  * await rdp.automation.waitFor('#SaveDialog', { state: 'visible' });
@@ -135,36 +147,70 @@ export class AutomationController {
   }
 
   /**
-   * Click an element.
+   * Invoke an element (InvokePattern) - for buttons, links, menu items.
    */
-  async click(selector: string, options: ClickOptions = {}): Promise<void> {
+  async invoke(selector: string): Promise<void> {
     await this.rdp._send({
       type: 'automate',
-      action: 'click',
-      selector,
-      button: options.button ?? 'left',
-      double: options.double ?? false,
-    });
-  }
-
-  /**
-   * Double-click an element.
-   */
-  async doubleClick(selector: string): Promise<void> {
-    await this.rdp._send({
-      type: 'automate',
-      action: 'double_click',
+      action: 'invoke',
       selector,
     });
   }
 
   /**
-   * Right-click an element.
+   * Select an element or item within container (SelectionItemPattern).
+   * For list items, radio buttons, etc.
    */
-  async rightClick(selector: string): Promise<void> {
+  async select(selector: string, options: SelectOptions = {}): Promise<void> {
     await this.rdp._send({
       type: 'automate',
-      action: 'right_click',
+      action: 'select',
+      selector,
+      item: options.item,
+    });
+  }
+
+  /**
+   * Toggle an element (TogglePattern) - for checkboxes.
+   */
+  async toggle(selector: string, options: ToggleOptions = {}): Promise<void> {
+    await this.rdp._send({
+      type: 'automate',
+      action: 'toggle',
+      selector,
+      state: options.state,
+    });
+  }
+
+  /**
+   * Expand an element (ExpandCollapsePattern) - for menus, tree items, combo boxes.
+   */
+  async expand(selector: string): Promise<void> {
+    await this.rdp._send({
+      type: 'automate',
+      action: 'expand',
+      selector,
+    });
+  }
+
+  /**
+   * Collapse an element (ExpandCollapsePattern).
+   */
+  async collapse(selector: string): Promise<void> {
+    await this.rdp._send({
+      type: 'automate',
+      action: 'collapse',
+      selector,
+    });
+  }
+
+  /**
+   * Open context menu for an element (Focus + Shift+F10).
+   */
+  async contextMenu(selector: string): Promise<void> {
+    await this.rdp._send({
+      type: 'automate',
+      action: 'context_menu',
       selector,
     });
   }
@@ -189,30 +235,6 @@ export class AutomationController {
       type: 'automate',
       action: 'clear',
       selector,
-    });
-  }
-
-  /**
-   * Select an item in a ComboBox or ListBox.
-   */
-  async select(selector: string, item: string): Promise<void> {
-    await this.rdp._send({
-      type: 'automate',
-      action: 'select',
-      selector,
-      item,
-    });
-  }
-
-  /**
-   * Check or uncheck a CheckBox or RadioButton.
-   */
-  async check(selector: string, uncheck = false): Promise<void> {
-    await this.rdp._send({
-      type: 'automate',
-      action: 'check',
-      selector,
-      uncheck,
     });
   }
 

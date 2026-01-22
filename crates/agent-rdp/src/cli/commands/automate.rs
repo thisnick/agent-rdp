@@ -1,8 +1,7 @@
 //! Automate command implementation for Windows UI Automation.
 
 use agent_rdp_protocol::{
-    AutomateRequest, AutomationMouseButton, AutomationScrollDirection, Request, WaitState,
-    WindowAction,
+    AutomateRequest, AutomationScrollDirection, Request, WaitState, WindowAction,
 };
 
 use crate::cli::{AutomateAction, AutomateArgs};
@@ -43,34 +42,24 @@ pub async fn run(
 
         AutomateAction::Focus { selector } => AutomateRequest::Focus { selector },
 
-        AutomateAction::Click {
-            selector,
-            button,
-            double,
-        } => {
-            let button = match button.as_deref() {
-                Some("right") => AutomationMouseButton::Right,
-                Some("middle") => AutomationMouseButton::Middle,
-                _ => AutomationMouseButton::Left,
-            };
-            AutomateRequest::Click {
-                selector,
-                button,
-                double,
-            }
+        AutomateAction::Invoke { selector } => AutomateRequest::Invoke { selector },
+
+        AutomateAction::Select { selector, item } => AutomateRequest::Select { selector, item },
+
+        AutomateAction::Toggle { selector, state } => {
+            let state = state.map(|s| matches!(s.as_str(), "on" | "true" | "1"));
+            AutomateRequest::Toggle { selector, state }
         }
 
-        AutomateAction::DoubleClick { selector } => AutomateRequest::DoubleClick { selector },
+        AutomateAction::Expand { selector } => AutomateRequest::Expand { selector },
 
-        AutomateAction::RightClick { selector } => AutomateRequest::RightClick { selector },
+        AutomateAction::Collapse { selector } => AutomateRequest::Collapse { selector },
+
+        AutomateAction::ContextMenu { selector } => AutomateRequest::ContextMenu { selector },
 
         AutomateAction::Fill { selector, text } => AutomateRequest::Fill { selector, text },
 
         AutomateAction::Clear { selector } => AutomateRequest::Clear { selector },
-
-        AutomateAction::Select { selector, item } => AutomateRequest::Select { selector, item },
-
-        AutomateAction::Check { selector, uncheck } => AutomateRequest::Check { selector, uncheck },
 
         AutomateAction::Scroll {
             selector,

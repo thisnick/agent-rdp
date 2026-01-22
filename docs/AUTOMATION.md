@@ -160,7 +160,7 @@ On startup, the PS agent writes `handshake.json`:
   "version": "1.0.0",
   "agent_pid": 12345,
   "started_at": "2024-01-15T10:30:00Z",
-  "capabilities": ["snapshot", "click", "fill", "window", "run", ...],
+  "capabilities": ["snapshot", "invoke", "select", "toggle", "expand", "collapse", "context_menu", "fill", "window", "run", ...],
   "ready": true
 }
 ```
@@ -251,6 +251,25 @@ The snapshot command supports filtering options (similar to agent-browser):
 | `.class` | ClassName | PropertyCondition on ClassNameProperty |
 | `~pattern` | Pattern | Name property with wildcard matching |
 | (none) | Name | PropertyCondition on NameProperty (exact match) |
+
+### Pattern-based Commands
+
+Commands use native Windows UI Automation patterns for reliable interaction:
+
+| Command | UI Automation Pattern | Use Case |
+|---------|----------------------|----------|
+| `invoke` | InvokePattern.Invoke() | Buttons, hyperlinks, menu items |
+| `select` | SelectionItemPattern.Select() | List items, radio buttons |
+| `toggle` | TogglePattern.Toggle() | Checkboxes |
+| `expand` | ExpandCollapsePattern.Expand() | Menus, tree items, combo boxes |
+| `collapse` | ExpandCollapsePattern.Collapse() | Menus, tree items, combo boxes |
+| `context_menu` | Focus + Shift+F10 (keyboard) | Opening context menus |
+| `fill` | ValuePattern.SetValue() | Text fields |
+
+**Why patterns instead of mouse clicks?**
+- **Reliability**: Patterns interact directly with the control, not via coordinates
+- **Speed**: No need to calculate positions or simulate mouse movement
+- **Consistency**: Works regardless of window position or overlapping elements
 
 ### Disconnect Detection
 

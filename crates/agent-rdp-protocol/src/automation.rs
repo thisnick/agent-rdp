@@ -40,26 +40,45 @@ pub enum AutomateRequest {
         selector: String,
     },
 
-    /// Click an element.
-    Click {
-        /// Element selector.
-        selector: String,
-        /// Mouse button to use.
-        #[serde(default)]
-        button: AutomationMouseButton,
-        /// Whether to double-click.
-        #[serde(default)]
-        double: bool,
-    },
-
-    /// Right-click an element.
-    RightClick {
+    /// Invoke an element (InvokePattern) - for buttons, links, menu items.
+    Invoke {
         /// Element selector.
         selector: String,
     },
 
-    /// Double-click an element.
-    DoubleClick {
+    /// Select an element (SelectionItemPattern) - for list items, radio buttons.
+    /// Can also select by item name within a container.
+    Select {
+        /// Element selector (container or item directly).
+        selector: String,
+        /// Item name to select within container (optional).
+        #[serde(skip_serializing_if = "Option::is_none")]
+        item: Option<String>,
+    },
+
+    /// Toggle an element (TogglePattern) - for checkboxes.
+    Toggle {
+        /// Element selector.
+        selector: String,
+        /// Target state: true=on, false=off, None=toggle.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        state: Option<bool>,
+    },
+
+    /// Expand an element (ExpandCollapsePattern) - for menus, tree items, combo boxes.
+    Expand {
+        /// Element selector.
+        selector: String,
+    },
+
+    /// Collapse an element (ExpandCollapsePattern).
+    Collapse {
+        /// Element selector.
+        selector: String,
+    },
+
+    /// Open context menu for an element (Focus + Shift+F10).
+    ContextMenu {
         /// Element selector.
         selector: String,
     },
@@ -76,23 +95,6 @@ pub enum AutomateRequest {
     Clear {
         /// Element selector.
         selector: String,
-    },
-
-    /// Select an item in a ComboBox or ListBox.
-    Select {
-        /// Element selector.
-        selector: String,
-        /// Item to select.
-        item: String,
-    },
-
-    /// Check or uncheck a CheckBox or RadioButton.
-    Check {
-        /// Element selector.
-        selector: String,
-        /// If true, uncheck instead of check.
-        #[serde(default)]
-        uncheck: bool,
     },
 
     /// Scroll an element.
@@ -156,16 +158,6 @@ fn default_max_depth() -> u32 {
 
 fn default_wait_timeout() -> u64 {
     30000
-}
-
-/// Mouse button for automation clicks.
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum AutomationMouseButton {
-    #[default]
-    Left,
-    Right,
-    Middle,
 }
 
 /// Scroll direction for automation.
@@ -416,16 +408,26 @@ mod tests {
     }
 
     #[test]
-    fn test_click_request_serialization() {
-        let req = AutomateRequest::Click {
+    fn test_invoke_request_serialization() {
+        let req = AutomateRequest::Invoke {
             selector: "@5".to_string(),
-            button: AutomationMouseButton::Left,
-            double: false,
         };
 
         let json = serde_json::to_string(&req).unwrap();
-        assert!(json.contains("\"op\":\"click\""));
+        assert!(json.contains("\"op\":\"invoke\""));
         assert!(json.contains("\"selector\":\"@5\""));
+    }
+
+    #[test]
+    fn test_toggle_request_serialization() {
+        let req = AutomateRequest::Toggle {
+            selector: "@5".to_string(),
+            state: Some(true),
+        };
+
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(json.contains("\"op\":\"toggle\""));
+        assert!(json.contains("\"state\":true"));
     }
 
     #[test]

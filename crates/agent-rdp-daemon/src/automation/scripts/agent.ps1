@@ -59,8 +59,8 @@ function Write-Handshake {
         agent_pid = $PID
         started_at = (Get-Date -Format "o")
         capabilities = @(
-            "snapshot", "click", "double_click", "right_click",
-            "focus", "get", "select", "fill", "clear", "check",
+            "snapshot", "invoke", "select", "toggle", "expand", "collapse",
+            "context_menu", "focus", "get", "fill", "clear",
             "scroll", "window", "run", "wait_for", "status"
         )
     }
@@ -153,15 +153,16 @@ function Start-Agent {
                     Write-Log "Executing command: $($request.command)"
                     $response.data = switch ($request.command) {
                         "snapshot"     { Invoke-Snapshot -Params $request.params }
-                        "click"        { Invoke-Click -Params $request.params }
-                        "double_click" { Invoke-DoubleClick -Params $request.params }
-                        "right_click"  { Invoke-RightClick -Params $request.params }
+                        "invoke"       { Invoke-Invoke -Params $request.params }
+                        "select"       { Invoke-Select -Params $request.params }
+                        "toggle"       { Invoke-Toggle -Params $request.params }
+                        "expand"       { Invoke-Expand -Params $request.params }
+                        "collapse"     { Invoke-Collapse -Params $request.params }
+                        "context_menu" { Invoke-ContextMenu -Params $request.params }
                         "focus"        { Invoke-Focus -Params $request.params }
                         "get"          { Invoke-Get -Params $request.params }
                         "fill"         { Invoke-Fill -Params $request.params }
                         "clear"        { Invoke-Clear -Params $request.params }
-                        "select"       { Invoke-Select -Params $request.params }
-                        "check"        { Invoke-Check -Params $request.params }
                         "scroll"       { Invoke-Scroll -Params $request.params }
                         "window"       { Invoke-Window -Params $request.params }
                         "run"          { Invoke-Run -Params $request.params }
