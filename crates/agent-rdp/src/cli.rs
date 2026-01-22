@@ -6,7 +6,7 @@ pub mod commands;
 
 /// CLI tool for AI agents to control Windows Remote Desktop sessions.
 #[derive(Parser)]
-#[command(name = "agent-rdp")]
+#[command(name = "agent-rdp", bin_name = "agent-rdp")]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
     /// Session name

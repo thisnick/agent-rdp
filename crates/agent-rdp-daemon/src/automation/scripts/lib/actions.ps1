@@ -419,7 +419,12 @@ function Invoke-Window {
     # For other actions, find the window
     $window = $null
     if ($Params.selector) {
-        $window = Find-Element -Selector $Params.selector
+        # Use window-specific search for wildcard patterns
+        if ($Params.selector -match '^~(.+)$') {
+            $window = Find-WindowByPattern -Pattern $Matches[1]
+        } else {
+            $window = Find-Element -Selector $Params.selector
+        }
     } else {
         # Get foreground window
         Add-Type -TypeDefinition @"

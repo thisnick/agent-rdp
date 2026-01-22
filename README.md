@@ -20,7 +20,7 @@ A CLI tool for AI agents to control Windows Remote Desktop sessions, built on [I
 ### From npm
 
 ```bash
-npm install agent-rdp
+npm install -g agent-rdp
 ```
 
 ### As a Claude Code skill
@@ -412,6 +412,32 @@ agent-rdp uses a daemon-per-session architecture:
 3. **IPC** - Unix sockets (macOS/Linux) or TCP (Windows)
 
 The daemon is automatically started on the first command and persists until explicitly closed or the session times out.
+
+## Limitations
+
+### UI Automation
+
+- **WebViews**: UI Automation cannot interact with WebView content (e.g., Windows Start menu search, Edge browser content, Electron apps). Use `Win+R` or `automate run` to launch programs directly instead of clicking through menus.
+- **UAC Dialogs**: User Account Control elevation prompts run on a secure desktop and are not accessible via UI Automation. There is no good workaround - the remote user must interact with UAC manually, or UAC must be disabled (not recommended for security reasons).
+
+### OCR Fallback
+
+When UI Automation cannot access certain elements, the `locate` command provides OCR-based text detection:
+
+```bash
+agent-rdp locate "Button Text"    # Find text and get coordinates
+agent-rdp mouse click <x> <y>     # Click at returned coordinates
+```
+
+This is not highly reliable (OCR can misread characters, miss text, or return imprecise coordinates), but may work for simple cases like dialog buttons.
+
+### Screenshot Coordinate Detection
+
+**Claude models** (in non-computer-use mode, such as Claude Code) are poor at estimating pixel coordinates from screenshots. Do not ask Claude to look at a screenshot and guess where to click - it will likely be inaccurate.
+
+**Gemini models** are generally good at pixel coordinate estimation from images.
+
+If you need vision-based coordinate detection with Claude, implement your own harness using Claude's [Computer Use Tool](https://docs.anthropic.com/en/docs/agents-and-tools/computer-use) which is specifically designed for this purpose.
 
 ## Requirements
 

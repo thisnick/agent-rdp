@@ -6,7 +6,6 @@
 # Build artifacts
 /target/
 /dist/
-/bin/agent-rdp
 /bin/agent-rdp-*
 Cargo.lock
 
@@ -33,3 +32,4 @@ Thumbs.db
 *.log
 *.png
 *.bmp
+.content/
