@@ -177,10 +177,10 @@ agent-rdp automate window restore
 agent-rdp automate window close "~*Notepad*"
 
 # Run commands/apps (best way to open apps)
-agent-rdp automate run "notepad.exe"                    # Open Notepad
-agent-rdp automate run "Start-Process ms-settings:" --wait  # Open Settings
-agent-rdp automate run "calc.exe"                       # Open Calculator
-agent-rdp automate run "Get-Process" --wait             # PowerShell command
+agent-rdp automate run "notepad.exe"                                        # Open Notepad
+agent-rdp automate run "Start-Process ms-settings:" --wait                  # Open Settings
+agent-rdp automate run "calc.exe"                                           # Open Calculator
+agent-rdp automate run "Get-Process" --wait --process-timeout 5000          # With 5s timeout
 
 # Wait for element
 agent-rdp automate wait-for <selector> --timeout 5000

@@ -106,11 +106,13 @@ pub async fn run(
             args: cmd_args,
             wait,
             hidden,
+            process_timeout,
         } => AutomateRequest::Run {
             command,
             args: cmd_args,
             wait,
             hidden,
+            timeout_ms: process_timeout.unwrap_or(10000),
         },
 
         AutomateAction::WaitFor {

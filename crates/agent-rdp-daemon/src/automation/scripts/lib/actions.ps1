@@ -483,6 +483,7 @@ function Invoke-Run {
     $commandArgs = if ($Params.args) { $Params.args -join " " } else { "" }
     $wait = if ($null -ne $Params.wait) { $Params.wait } else { $false }
     $hidden = if ($null -ne $Params.hidden) { $Params.hidden } else { $false }
+    $timeoutMs = if ($Params.timeout_ms) { [int]$Params.timeout_ms } else { 10000 }
 
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = "powershell.exe"
@@ -495,14 +496,25 @@ function Invoke-Run {
     $process = [System.Diagnostics.Process]::Start($startInfo)
 
     if ($wait) {
-        $stdout = $process.StandardOutput.ReadToEnd()
-        $stderr = $process.StandardError.ReadToEnd()
-        $process.WaitForExit()
+        # Use async reading to avoid deadlock when buffer fills
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+
+        $exited = $process.WaitForExit($timeoutMs)
+
+        if (-not $exited) {
+            try { $process.Kill() } catch {}
+            throw "Process timed out after $timeoutMs ms and was killed"
+        }
+
+        # Wait for async reads to complete (with short timeout since process exited)
+        [void]$stdoutTask.Wait(5000)
+        [void]$stderrTask.Wait(5000)
 
         return @{
             exit_code = $process.ExitCode
-            stdout = $stdout
-            stderr = $stderr
+            stdout = $stdoutTask.Result
+            stderr = $stderrTask.Result
         }
     } else {
         return @{
