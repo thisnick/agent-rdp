@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.3](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.3.2...agent-rdp-v0.3.3) (2026-01-22)
+
+
+### Features
+
+* improve CLI, docs, and fix window pattern matching ([ce2e82b](https://github.com/thisnick/agent-rdp/commit/ce2e82ba2e4c8fb37e2e22db87dafa3c4791749f))
+* improve CLI, docs, and fix window pattern matching ([a2354f8](https://github.com/thisnick/agent-rdp/commit/a2354f8e05eed7c00be80909f2b245c20da7fc14))
+
 ## [0.3.2](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.3.1...agent-rdp-v0.3.2) (2026-01-22)
 
 
