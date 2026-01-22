@@ -108,6 +108,18 @@ export interface ClipboardSetOptions {
   text: string;
 }
 
+/** Options for locate (OCR) operations. */
+export interface LocateOptions {
+  /** Text to search for. Required unless all is true. */
+  text?: string;
+  /** If true, returns all text on screen. */
+  all?: boolean;
+  /** Use glob-style pattern matching (* and ?). */
+  pattern?: boolean;
+  /** Case-sensitive matching (default: false). */
+  caseSensitive?: boolean;
+}
+
 // --- Request Types (for IPC) ---
 
 export interface ConnectRequest {

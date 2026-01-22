@@ -38,6 +38,7 @@ import {
   KeyboardTypeOptions,
   KeyboardPressOptions,
   ClipboardSetOptions,
+  LocateOptions,
   OcrMatch,
   Request,
   Response,
@@ -305,60 +306,36 @@ export class RdpSession {
 
   /**
    * Locate text on screen using OCR.
-   * Searches within full lines of text and returns matching lines.
    *
-   * @param text Text to search for (searches within full lines)
-   * @param options Search options
+   * @param options Locate options
+   * @param options.text Text to search for (required unless all is true)
+   * @param options.all If true, returns all text on screen
    * @param options.pattern Use glob-style pattern matching (* and ?)
    * @param options.caseSensitive Case-sensitive matching (default: false)
    * @returns Array of matching text lines with coordinates
    *
    * @example
    * ```typescript
-   * // Find lines containing text (e.g., "Non HDR - File Explorer")
-   * const matches = await rdp.locate('Non HDR');
+   * // Find lines containing text
+   * const matches = await rdp.locate({ text: 'Non HDR' });
    * if (matches.length > 0) {
    *   await rdp.mouse.click({ x: matches[0].center_x, y: matches[0].center_y });
    * }
    *
    * // Pattern matching
-   * const saveButtons = await rdp.locate('Save*', { pattern: true });
+   * const saveButtons = await rdp.locate({ text: 'Save*', pattern: true });
+   *
+   * // Get all text on screen
+   * const allLines = await rdp.locate({ all: true });
    * ```
    */
-  async locate(
-    text: string,
-    options: { pattern?: boolean; caseSensitive?: boolean } = {},
-  ): Promise<OcrMatch[]> {
+  async locate(options: LocateOptions): Promise<OcrMatch[]> {
     const response = await this._send({
       type: 'locate',
-      text,
+      text: options.text ?? '',
       pattern: options.pattern ?? false,
       ignore_case: !(options.caseSensitive ?? false),
-      all: false,
-    });
-
-    const data = response.data as { matches: OcrMatch[] };
-    return data.matches ?? [];
-  }
-
-  /**
-   * Get all text lines on screen using OCR.
-   *
-   * @returns Array of all text lines with coordinates
-   *
-   * @example
-   * ```typescript
-   * const allLines = await rdp.locateAll();
-   * for (const line of allLines) {
-   *   console.log(`"${line.text}" at (${line.center_x}, ${line.center_y})`);
-   * }
-   * ```
-   */
-  async locateAll(): Promise<OcrMatch[]> {
-    const response = await this._send({
-      type: 'locate',
-      text: '',
-      all: true,
+      all: options.all ?? false,
     });
 
     const data = response.data as { matches: OcrMatch[] };
