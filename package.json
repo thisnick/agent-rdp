@@ -1,6 +1,6 @@
 {
   "name": "agent-rdp",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "CLI tool for AI agents to control Windows Remote Desktop sessions",
   "repository": {
     "type": "git",
