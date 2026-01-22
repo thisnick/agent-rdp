@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.2.3...agent-rdp-v0.3.0) (2026-01-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* Remove click/double-click/right-click/check commands in favor of native UI Automation patterns.
+
+### Features
+
+* replace mouse-based automation with native UI Automation patterns ([715f9bb](https://github.com/thisnick/agent-rdp/commit/715f9bbf34e5d666b8f1ca8207a517f628676c0b))
+
 ## [0.2.3](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.2.2...agent-rdp-v0.2.3) (2026-01-21)
 
 
