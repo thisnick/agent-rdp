@@ -67,6 +67,38 @@ function Find-ElementByPatternAcrossAllWindows {
     return $null
 }
 
+# Search for Window elements only by wildcard pattern (for window operations)
+function Find-WindowByPattern {
+    param([string]$Pattern)
+
+    $root = [System.Windows.Automation.AutomationElement]::RootElement
+    $windowCondition = New-Object System.Windows.Automation.PropertyCondition(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+        [System.Windows.Automation.ControlType]::Window)
+
+    # Search top-level windows first
+    $allWindows = $root.FindAll(
+        [System.Windows.Automation.TreeScope]::Children, $windowCondition)
+
+    foreach ($win in $allWindows) {
+        if ($win.Current.Name -like $Pattern) {
+            return $win
+        }
+    }
+
+    # Also search descendant windows (for child/dialog windows)
+    $allWindows = $root.FindAll(
+        [System.Windows.Automation.TreeScope]::Descendants, $windowCondition)
+
+    foreach ($win in $allWindows) {
+        if ($win.Current.Name -like $Pattern) {
+            return $win
+        }
+    }
+
+    return $null
+}
+
 function Find-Element {
     param([string]$Selector)
 

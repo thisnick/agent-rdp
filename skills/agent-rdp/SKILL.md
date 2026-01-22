@@ -41,8 +41,6 @@ Some UI elements (WebView content, certain dialogs, toast notifications) don't a
 2. Use locate to find coordinates: `agent-rdp locate "Button Text"`
 3. Click using returned coordinates: `agent-rdp mouse click <x> <y>`
 
-**Important:** Only use coordinates returned by `locate`. Never guess positions from screenshots.
-
 ## Commands
 
 ### Connection
@@ -304,3 +302,33 @@ agent-rdp automate run "calc.exe"
 agent-rdp automate run "Start-Process ms-settings:" --wait   # Settings
 agent-rdp automate run "explorer.exe C:\\"                   # File Explorer
 ```
+
+## Limitations
+
+**IMPORTANT: Read these limitations carefully before attempting automation tasks.**
+
+### UI Automation cannot access WebViews
+- The Windows Start menu search, Edge browser content, Electron app content, and other WebView-based UIs are NOT accessible via `automate snapshot`.
+- **Workaround**: Use `Win+R` (Run dialog) or `automate run` to launch programs directly instead of navigating through the Start menu.
+
+### UI Automation cannot handle UAC dialogs
+- User Account Control elevation prompts run on a secure desktop isolated from UI Automation.
+- UAC dialogs will NOT appear in `automate snapshot` output.
+- **Workaround**: Use `locate` command (OCR) to find button text and `mouse click` to interact. This is unreliable but may work for simple Yes/No dialogs.
+
+### OCR (`locate`) is not highly reliable
+- The `locate` command uses OCR which can misread characters, miss text entirely, or return imprecise coordinates.
+- Use it as a last resort when UI Automation cannot access elements.
+- Always verify coordinates before clicking critical buttons.
+
+### DO NOT estimate coordinates from screenshots (Claude only)
+- **Claude models in non-computer-use mode (like Claude Code) are very bad at pixel counting.**
+- Do NOT look at a screenshot and try to guess coordinates - the estimates will likely be wrong.
+- **Note**: Gemini models are generally good at pixel coordinate estimation.
+- If you need vision-based coordinate detection with Claude, the user must implement a harness using Claude's [Computer Use Tool](https://docs.anthropic.com/en/docs/agents-and-tools/computer-use).
+
+### Recommended workflow when UI Automation fails
+1. First, always try `automate snapshot` (with and without `-i` flag)
+2. If element not found, try `locate "text"` to find via OCR
+3. Use coordinates from `locate` output with `mouse click`
+4. **Never** estimate coordinates by looking at screenshots
