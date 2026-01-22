@@ -16,8 +16,111 @@ pub async fn handle(
     rdp_session: &Arc<Mutex<Option<RdpSession>>>,
     action: MouseRequest,
 ) -> Response {
-    let session = rdp_session.lock().await;
+    // For Click and Drag, we release the lock during sleep() to allow streaming
+    match action {
+        MouseRequest::Click { x, y } => {
+            debug!("Mouse click at ({}, {})", x, y);
+            // Send down event
+            let down_event =
+                vec![create_mouse_event(x, y, PointerFlags::LEFT_BUTTON | PointerFlags::DOWN)];
+            {
+                let session = rdp_session.lock().await;
+                let rdp = match session.as_ref() {
+                    Some(rdp) => rdp,
+                    None => {
+                        return Response::error(
+                            ErrorCode::NotConnected,
+                            "Not connected to an RDP server",
+                        );
+                    }
+                };
+                if let Err(e) = rdp.send_input(down_event).await {
+                    return Response::error(ErrorCode::InternalError, e.to_string());
+                }
+            } // Lock released - streaming can proceed
 
+            // Small delay between down and up
+            sleep(Duration::from_millis(20)).await;
+
+            // Send up event
+            let up_event = vec![create_mouse_event(x, y, PointerFlags::LEFT_BUTTON)];
+            {
+                let session = rdp_session.lock().await;
+                let rdp = match session.as_ref() {
+                    Some(rdp) => rdp,
+                    None => {
+                        return Response::error(
+                            ErrorCode::NotConnected,
+                            "Not connected to an RDP server",
+                        );
+                    }
+                };
+                if let Err(e) = rdp.send_input(up_event).await {
+                    return Response::error(ErrorCode::InternalError, e.to_string());
+                }
+            }
+            return Response::ok();
+        }
+
+        MouseRequest::Drag {
+            from_x,
+            from_y,
+            to_x,
+            to_y,
+        } => {
+            // Press at start position
+            let start_events = vec![
+                create_mouse_event(from_x, from_y, PointerFlags::MOVE),
+                create_mouse_event(from_x, from_y, PointerFlags::LEFT_BUTTON | PointerFlags::DOWN),
+            ];
+            {
+                let session = rdp_session.lock().await;
+                let rdp = match session.as_ref() {
+                    Some(rdp) => rdp,
+                    None => {
+                        return Response::error(
+                            ErrorCode::NotConnected,
+                            "Not connected to an RDP server",
+                        );
+                    }
+                };
+                if let Err(e) = rdp.send_input(start_events).await {
+                    return Response::error(ErrorCode::InternalError, e.to_string());
+                }
+            } // Lock released - streaming can proceed
+
+            // Small delay for drag
+            sleep(Duration::from_millis(50)).await;
+
+            // Move to end and release
+            let end_events = vec![
+                create_mouse_event(to_x, to_y, PointerFlags::MOVE),
+                create_mouse_event(to_x, to_y, PointerFlags::LEFT_BUTTON),
+            ];
+            {
+                let session = rdp_session.lock().await;
+                let rdp = match session.as_ref() {
+                    Some(rdp) => rdp,
+                    None => {
+                        return Response::error(
+                            ErrorCode::NotConnected,
+                            "Not connected to an RDP server",
+                        );
+                    }
+                };
+                if let Err(e) = rdp.send_input(end_events).await {
+                    return Response::error(ErrorCode::InternalError, e.to_string());
+                }
+            }
+            return Response::ok();
+        }
+
+        // Other operations are single send_input calls with no sleeps
+        _ => {}
+    }
+
+    // Handle remaining operations with a single lock scope
+    let session = rdp_session.lock().await;
     let rdp = match session.as_ref() {
         Some(rdp) => rdp,
         None => {
@@ -30,20 +133,6 @@ pub async fn handle(
             debug!("Mouse move to ({}, {})", x, y);
             let events = vec![create_mouse_event(x, y, PointerFlags::MOVE)];
             rdp.send_input(events).await
-        }
-
-        MouseRequest::Click { x, y } => {
-            debug!("Mouse click at ({}, {})", x, y);
-            // Send down event
-            let down_event = vec![create_mouse_event(x, y, PointerFlags::LEFT_BUTTON | PointerFlags::DOWN)];
-            if let Err(e) = rdp.send_input(down_event).await {
-                return Response::error(ErrorCode::InternalError, e.to_string());
-            }
-            // Small delay between down and up
-            sleep(Duration::from_millis(20)).await;
-            // Send up event
-            let up_event = vec![create_mouse_event(x, y, PointerFlags::LEFT_BUTTON)];
-            rdp.send_input(up_event).await
         }
 
         MouseRequest::RightClick { x, y } => {
@@ -66,31 +155,14 @@ pub async fn handle(
 
         MouseRequest::MiddleClick { x, y } => {
             let events = vec![
-                create_mouse_event(x, y, PointerFlags::MIDDLE_BUTTON_OR_WHEEL | PointerFlags::DOWN),
+                create_mouse_event(
+                    x,
+                    y,
+                    PointerFlags::MIDDLE_BUTTON_OR_WHEEL | PointerFlags::DOWN,
+                ),
                 create_mouse_event(x, y, PointerFlags::MIDDLE_BUTTON_OR_WHEEL),
             ];
             rdp.send_input(events).await
-        }
-
-        MouseRequest::Drag { from_x, from_y, to_x, to_y } => {
-            // Press at start position
-            let start_events = vec![
-                create_mouse_event(from_x, from_y, PointerFlags::MOVE),
-                create_mouse_event(from_x, from_y, PointerFlags::LEFT_BUTTON | PointerFlags::DOWN),
-            ];
-            if let Err(e) = rdp.send_input(start_events).await {
-                return Response::error(ErrorCode::InternalError, e.to_string());
-            }
-
-            // Small delay for drag
-            sleep(Duration::from_millis(50)).await;
-
-            // Move to end and release
-            let end_events = vec![
-                create_mouse_event(to_x, to_y, PointerFlags::MOVE),
-                create_mouse_event(to_x, to_y, PointerFlags::LEFT_BUTTON),
-            ];
-            rdp.send_input(end_events).await
         }
 
         MouseRequest::ButtonDown { button } => {
@@ -104,6 +176,9 @@ pub async fn handle(
             let events = vec![create_mouse_event(0, 0, flags | PointerFlags::MOVE)];
             rdp.send_input(events).await
         }
+
+        // Click and Drag are handled above
+        MouseRequest::Click { .. } | MouseRequest::Drag { .. } => unreachable!(),
     };
 
     match result {
