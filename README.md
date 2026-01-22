@@ -206,6 +206,7 @@ agent-rdp automate window focus "~*Notepad*"
 
 # Run PowerShell commands
 agent-rdp automate run "Get-Process" --wait
+agent-rdp automate run "Get-Process" --wait --process-timeout 5000  # With 5s timeout
 ```
 
 **Selector Types:**

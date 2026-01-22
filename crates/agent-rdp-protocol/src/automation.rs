@@ -134,6 +134,9 @@ pub enum AutomateRequest {
         /// Run with hidden window.
         #[serde(default)]
         hidden: bool,
+        /// Timeout in milliseconds when waiting.
+        #[serde(default = "default_run_timeout")]
+        timeout_ms: u64,
     },
 
     /// Wait for an element to reach a state.
@@ -158,6 +161,10 @@ fn default_max_depth() -> u32 {
 
 fn default_wait_timeout() -> u64 {
     30000
+}
+
+fn default_run_timeout() -> u64 {
+    10000
 }
 
 /// Scroll direction for automation.

@@ -465,6 +465,10 @@ pub enum AutomateAction {
         /// Run with hidden window
         #[arg(long)]
         hidden: bool,
+
+        /// Process timeout in milliseconds when waiting (default: 10000)
+        #[arg(long = "process-timeout")]
+        process_timeout: Option<u64>,
     },
 
     /// Wait for an element to reach a state

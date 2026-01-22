@@ -54,6 +54,8 @@ export interface RunOptions {
   wait?: boolean;
   /** Run with hidden window. */
   hidden?: boolean;
+  /** Process timeout in milliseconds when waiting (default: 10000). */
+  processTimeout?: number;
 }
 
 export interface WaitForOptions {
@@ -336,6 +338,7 @@ export class AutomationController {
       args: options.args ?? [],
       wait: options.wait ?? false,
       hidden: options.hidden ?? true,
+      timeout_ms: options.processTimeout ?? 10000,
     });
     return response.data as unknown as AutomationRunResult;
   }
