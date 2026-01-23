@@ -4,6 +4,14 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'agent-rdp-v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for release (e.g., agent-rdp-v0.5.0)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -12,6 +20,7 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
@@ -24,7 +33,7 @@ jobs:
 
   build:
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created }}
+    if: ${{ always() && (needs.release-please.outputs.release_created || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')) }}
     strategy:
       matrix:
         include:
@@ -85,11 +94,13 @@ jobs:
 
   publish:
     needs: [release-please, build]
-    if: ${{ needs.release-please.outputs.release_created }}
+    if: ${{ always() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
       id-token: write  # Required for npm provenance
+    env:
+      TAG_NAME: ${{ needs.release-please.outputs.tag_name || inputs.tag_name || github.ref_name }}
 
     steps:
       - uses: actions/checkout@v4
@@ -120,11 +131,19 @@ jobs:
           done
           ls -la release/
 
+      - name: Create GitHub Release if needed
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh release view "$TAG_NAME" &>/dev/null; then
+            gh release create "$TAG_NAME" --title "agent-rdp: ${TAG_NAME#agent-rdp-}" --generate-notes
+          fi
+
       - name: Upload binaries to GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ needs.release-please.outputs.tag_name }} release/* --clobber
+          gh release upload "$TAG_NAME" release/* --clobber
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
