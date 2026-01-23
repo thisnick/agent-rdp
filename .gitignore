@@ -12,9 +12,10 @@ Cargo.lock
 # TypeScript build output
 packages/agent-rdp/dist/
 
-# Platform binaries (built during CI/local dev)
+# Platform binaries and models (built during CI/local dev)
 packages/*/bin/agent-rdp
 packages/*/bin/agent-rdp.exe
+packages/*/models/
 
 # Node.js
 node_modules/

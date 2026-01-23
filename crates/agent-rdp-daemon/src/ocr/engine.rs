@@ -229,35 +229,31 @@ fn glob_match(pattern: &str, text: &str) -> bool {
 }
 
 /// Find the models directory relative to the executable.
+///
+/// Models are always at `bin/../models` relative to the executable:
+/// - Dev: packages/{platform}/bin/agent-rdp -> packages/{platform}/models/
+/// - npm: node_modules/@agent-rdp/{platform}/bin/agent-rdp -> node_modules/@agent-rdp/{platform}/models/
 pub fn find_models_dir() -> Result<PathBuf> {
     let exe_path = std::env::current_exe().context("Failed to get executable path")?;
 
-    // Try several possible locations
-    let candidates = [
-        // Development: models/ in project root (target/debug/agent-rdp -> models)
-        exe_path
-            .parent()
-            .and_then(|p| p.parent())
-            .and_then(|p| p.parent())
-            .map(|p| p.join("models")),
-        // npm package: bin/../models
-        exe_path.parent().and_then(|p| p.parent()).map(|p| p.join("models")),
-        // Same directory as executable
-        exe_path.parent().map(|p| p.join("models")),
-    ];
+    // Models are always sibling to bin directory: bin/../models
+    let models_dir = exe_path
+        .parent() // bin/
+        .and_then(|p| p.parent()) // package root
+        .map(|p| p.join("models"))
+        .context("Failed to compute models directory path")?;
 
-    for candidate in candidates.iter().flatten() {
-        let detection = candidate.join("text-detection.rten");
-        let recognition = candidate.join("text-recognition.rten");
-        if detection.exists() && recognition.exists() {
-            debug!("Found models directory at {:?}", candidate);
-            return Ok(candidate.clone());
-        }
+    let detection = models_dir.join("text-detection.rten");
+    let recognition = models_dir.join("text-recognition.rten");
+
+    if detection.exists() && recognition.exists() {
+        debug!("Found models directory at {:?}", models_dir);
+        return Ok(models_dir);
     }
 
     anyhow::bail!(
-        "Could not find OCR models. Looked in: {:?}",
-        candidates.iter().flatten().collect::<Vec<_>>()
+        "Could not find OCR models at {:?}. Run 'pnpm build' to copy models.",
+        models_dir
     )
 }
 

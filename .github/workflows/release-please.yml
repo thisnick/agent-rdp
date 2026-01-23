@@ -73,18 +73,22 @@ jobs:
           RUSTFLAGS: ${{ matrix.rustflags }}
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Copy binary to package (Unix)
+      - name: Copy binary and models to package (Unix)
         if: runner.os != 'Windows'
         run: |
           mkdir -p packages/${{ matrix.package }}/bin
+          mkdir -p packages/${{ matrix.package }}/models
           cp target/${{ matrix.target }}/release/agent-rdp packages/${{ matrix.package }}/bin/
           chmod +x packages/${{ matrix.package }}/bin/agent-rdp
+          cp models/*.rten packages/${{ matrix.package }}/models/
 
-      - name: Copy binary to package (Windows)
+      - name: Copy binary and models to package (Windows)
         if: runner.os == 'Windows'
         run: |
           New-Item -ItemType Directory -Force -Path packages/${{ matrix.package }}/bin
+          New-Item -ItemType Directory -Force -Path packages/${{ matrix.package }}/models
           Copy-Item target/${{ matrix.target }}/release/agent-rdp.exe packages/${{ matrix.package }}/bin/
+          Copy-Item models/*.rten packages/${{ matrix.package }}/models/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -169,11 +173,10 @@ jobs:
         run: |
           for platform in darwin-arm64 darwin-x64 linux-x64 linux-arm64 win32-x64 win32-arm64; do
             echo "Publishing @agent-rdp/$platform..."
-            (cd packages/$platform && npm publish --access public --provenance)
+            pnpm --filter "@agent-rdp/$platform" publish --access public --provenance --no-git-checks
           done
 
       - name: Publish main package
         run: |
           cp README.md packages/agent-rdp/
-          cd packages/agent-rdp
-          npm publish --access public --provenance
+          pnpm --filter agent-rdp publish --access public --provenance --no-git-checks

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * Copy native binary to the appropriate platform package for local development.
+ * Copy native binary and models to the appropriate platform package for local development.
  */
 
-const { copyFileSync, existsSync, mkdirSync, chmodSync } = require('fs');
+const { copyFileSync, existsSync, mkdirSync, chmodSync, readdirSync } = require('fs');
 const { join } = require('path');
 const { platform, arch } = require('os');
 
@@ -63,3 +63,19 @@ if (os !== 'win32') {
 }
 
 console.log(`Copied binary to packages/${packageName}/bin/agent-rdp${ext}`);
+
+// Copy models from root
+const modelsSourceDir = join(projectRoot, 'models');
+const modelsDestDir = join(projectRoot, 'packages', packageName, 'models');
+
+if (existsSync(modelsSourceDir)) {
+  if (!existsSync(modelsDestDir)) {
+    mkdirSync(modelsDestDir, { recursive: true });
+  }
+
+  const modelFiles = readdirSync(modelsSourceDir).filter(f => f.endsWith('.rten'));
+  for (const file of modelFiles) {
+    copyFileSync(join(modelsSourceDir, file), join(modelsDestDir, file));
+  }
+  console.log(`Copied ${modelFiles.length} model files to packages/${packageName}/models/`);
+}
