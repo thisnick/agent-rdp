@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.0](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.3.5...agent-rdp-v0.4.0) (2026-01-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* The `invoke` automation command has been renamed to `click`.
+
+### Features
+
+* rename invoke to click with mouse-based implementation ([#30](https://github.com/thisnick/agent-rdp/issues/30)) ([e265697](https://github.com/thisnick/agent-rdp/commit/e265697d8207429318170a960dfe7520e082563c))
+
+
+### Bug Fixes
+
+* set working directory to user profile for run command ([dde0b6c](https://github.com/thisnick/agent-rdp/commit/dde0b6c8522dfc2221eb50e1e4d45aac9a1add11))
+* set working directory to user profile for run command ([e94ce33](https://github.com/thisnick/agent-rdp/commit/e94ce33556a73d354a702236c6175ea196bfc8b2))
+
 ## [0.3.5](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.3.4...agent-rdp-v0.3.5) (2026-01-23)
 
 
