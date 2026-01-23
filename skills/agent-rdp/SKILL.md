@@ -11,7 +11,7 @@ allowed-tools: Bash(agent-rdp:*)
 ```bash
 agent-rdp connect --host <ip> -u <user> -p <pass> --enable-win-automation
 agent-rdp automate snapshot -i              # See interactive elements
-agent-rdp automate invoke "@e5"             # Invoke button by ref
+agent-rdp automate click "@e5"              # Click button by ref
 agent-rdp automate fill "@e7" "Hello"       # Type into field
 agent-rdp disconnect
 ```
@@ -20,7 +20,7 @@ agent-rdp disconnect
 
 1. Connect with automation: `agent-rdp connect --host <ip> -u <user> -p <pass> --enable-win-automation`
 2. Snapshot: `agent-rdp automate snapshot -i` (get accessibility tree with refs)
-3. Act: `agent-rdp automate invoke @e5` or `agent-rdp automate fill @e7 "text"`
+3. Act: `agent-rdp automate click @e5` or `agent-rdp automate fill @e7 "text"`
 4. Repeat: snapshot → act → snapshot → act...
 
 ## Troubleshooting
@@ -147,8 +147,9 @@ agent-rdp automate snapshot -f             # Start from focused element
 agent-rdp automate snapshot -i -c -d 3     # Combine options
 
 # Pattern-based element operations (use selectors: @eN, #automationId, .className, or name)
-agent-rdp automate invoke "#SaveButton"   # Invoke button (InvokePattern)
-agent-rdp automate invoke "@e5"           # Invoke by ref number
+agent-rdp automate click "#SaveButton"    # Click button
+agent-rdp automate click "@e5"            # Click by ref number
+agent-rdp automate click "@e5" -d         # Double-click (for file list items)
 agent-rdp automate select "@e10"          # Select item (SelectionItemPattern)
 agent-rdp automate select "@e5" --item "Option 1"  # Select item by name in container
 agent-rdp automate toggle "@e7"           # Toggle checkbox (TogglePattern)
@@ -260,14 +261,14 @@ agent-rdp automate fill "@e5" "Hello from automation!"
 # Use File menu to save - expand menu, then invoke menu item
 agent-rdp automate expand "File"          # Expand menu (ExpandCollapsePattern)
 agent-rdp wait 500
-agent-rdp automate invoke "Save As..."    # Invoke menu item
+agent-rdp automate click "Save As..."     # Click menu item
 
 # Wait for Save dialog
 agent-rdp automate wait-for "#FileNameControlHost" --timeout 5000
 
 # Fill filename and save
 agent-rdp automate fill "#FileNameControlHost" "test.txt"
-agent-rdp automate invoke "#1"            # Invoke Save button
+agent-rdp automate click "#1"             # Click Save button
 ```
 
 ## Environment variables

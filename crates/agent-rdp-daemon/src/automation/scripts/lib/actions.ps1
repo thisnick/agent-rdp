@@ -1,6 +1,6 @@
 # actions.ps1 - All automation action functions using native UI Automation patterns
 
-function Invoke-Invoke {
+function Invoke-Click {
     param($Params)
 
     $element = Find-Element -Selector $Params.selector
@@ -13,18 +13,68 @@ function Invoke-Invoke {
         throw "Element no longer exists (window may have closed)"
     }
 
-    # Use InvokePattern
-    try {
-        $invokePattern = $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-        if ($invokePattern) {
-            $invokePattern.Invoke()
-            return @{ invoked = $true; method = "InvokePattern" }
-        }
-    } catch {
-        throw "Element does not support InvokePattern: $($_.Exception.Message)"
+    # Check if element is enabled (modal dialogs disable parent window elements)
+    if (-not $element.Current.IsEnabled) {
+        throw "Element is disabled (a modal dialog may be open)"
     }
 
-    throw "Element does not support InvokePattern"
+    # Use mouse click via SendInput. This is non-blocking and reliable,
+    # unlike InvokePattern.Invoke() which blocks when opening modal dialogs.
+
+    $doubleClick = if ($null -ne $Params.double_click) { $Params.double_click } else { $false }
+
+    # Get the element's bounding rectangle
+    $rect = $element.Current.BoundingRectangle
+    if ($rect.IsEmpty -or [double]::IsInfinity($rect.X)) {
+        throw "Element has no valid bounding rectangle (may be off-screen or invisible)"
+    }
+
+    $centerX = [int]($rect.X + $rect.Width / 2)
+    $centerY = [int]($rect.Y + $rect.Height / 2)
+
+    # Add Win32 mouse input type if not already defined
+    if (-not ([System.Management.Automation.PSTypeName]'InvokeMouse').Type) {
+        Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+public class InvokeMouse {
+    [DllImport("user32.dll")]
+    public static extern bool SetCursorPos(int x, int y);
+
+    [DllImport("user32.dll")]
+    public static extern void mouse_event(uint dwFlags, int dx, int dy, uint dwData, UIntPtr dwExtraInfo);
+
+    public const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
+    public const uint MOUSEEVENTF_LEFTUP = 0x0004;
+}
+"@
+    }
+
+    # Move cursor to element center
+    $null = [InvokeMouse]::SetCursorPos($centerX, $centerY)
+    Start-Sleep -Milliseconds 30
+
+    # Perform click(s)
+    [InvokeMouse]::mouse_event([InvokeMouse]::MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [UIntPtr]::Zero)
+    Start-Sleep -Milliseconds 30
+    [InvokeMouse]::mouse_event([InvokeMouse]::MOUSEEVENTF_LEFTUP, 0, 0, 0, [UIntPtr]::Zero)
+
+    if ($doubleClick) {
+        Start-Sleep -Milliseconds 50
+        [InvokeMouse]::mouse_event([InvokeMouse]::MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [UIntPtr]::Zero)
+        Start-Sleep -Milliseconds 30
+        [InvokeMouse]::mouse_event([InvokeMouse]::MOUSEEVENTF_LEFTUP, 0, 0, 0, [UIntPtr]::Zero)
+    }
+
+    $method = if ($doubleClick) { "double_click" } else { "click" }
+
+    return @{
+        clicked = $true
+        method = $method
+        x = $centerX
+        y = $centerY
+    }
 }
 
 function Invoke-Expand {

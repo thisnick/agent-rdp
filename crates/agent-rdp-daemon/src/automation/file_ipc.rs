@@ -276,15 +276,16 @@ mod tests {
     }
 
     #[test]
-    fn test_serialize_invoke_request() {
+    fn test_serialize_click_request() {
         let ipc = FileIpc::new(PathBuf::from("/tmp/test"));
 
-        let request = AutomateRequest::Invoke {
+        let request = AutomateRequest::Click {
             selector: "@5".to_string(),
+            double_click: false,
         };
 
         let (command, params) = ipc.serialize_request(&request).unwrap();
-        assert_eq!(command, "invoke");
+        assert_eq!(command, "click");
         assert_eq!(params["selector"], "@5");
     }
 

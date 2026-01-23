@@ -363,10 +363,14 @@ pub enum AutomateAction {
         selector: String,
     },
 
-    /// Invoke an element (InvokePattern) - for buttons, links, menu items
-    Invoke {
+    /// Click an element - for buttons, links, menu items
+    Click {
         /// Element selector
         selector: String,
+
+        /// Use double-click instead of single click
+        #[arg(long, short = 'd')]
+        double_click: bool,
     },
 
     /// Select an element or item (SelectionItemPattern) - for list items, radio buttons

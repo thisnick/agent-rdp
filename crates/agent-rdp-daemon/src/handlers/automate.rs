@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use agent_rdp_protocol::{
-    AccessibilityElement, AccessibilitySnapshot, AutomateRequest, AutomationStatus, ElementBounds,
-    ElementValue, ErrorCode, Response, ResponseData, RunResult, WindowInfo,
+    AccessibilityElement, AccessibilitySnapshot, AutomateRequest, AutomationStatus, ClickResult,
+    ElementBounds, ElementValue, ErrorCode, Response, ResponseData, RunResult, WindowInfo,
 };
 use tokio::sync::Mutex;
 use tracing::error;
@@ -149,6 +149,16 @@ fn convert_response(request: AutomateRequest, data: serde_json::Value) -> Respon
                 Ok(status) => Response::success(ResponseData::AutomationStatus(status)),
                 Err(e) => {
                     error!("Failed to parse status response: {}", e);
+                    Response::error(ErrorCode::AutomationError, e.to_string())
+                }
+            }
+        }
+
+        AutomateRequest::Click { .. } => {
+            match parse_click_response(data) {
+                Ok(result) => Response::success(ResponseData::ClickResult(result)),
+                Err(e) => {
+                    error!("Failed to parse click response: {}", e);
                     Response::error(ErrorCode::AutomationError, e.to_string())
                 }
             }
@@ -351,5 +361,29 @@ fn parse_status_response(data: serde_json::Value) -> anyhow::Result<AutomationSt
         agent_pid,
         capabilities,
         version,
+    })
+}
+
+/// Parse click response from PowerShell agent.
+fn parse_click_response(data: serde_json::Value) -> anyhow::Result<ClickResult> {
+    tracing::debug!("Click response data: {}", data);
+    let clicked = data["clicked"].as_bool().unwrap_or(false);
+    let method = data["method"].as_str().unwrap_or("unknown").to_string();
+    // Handle both int and float (PowerShell may serialize as either)
+    let x = data["x"]
+        .as_i64()
+        .map(|v| v as i32)
+        .or_else(|| data["x"].as_f64().map(|v| v as i32));
+    let y = data["y"]
+        .as_i64()
+        .map(|v| v as i32)
+        .or_else(|| data["y"].as_f64().map(|v| v as i32));
+    tracing::debug!("Parsed click: clicked={}, method={}, x={:?}, y={:?}", clicked, method, x, y);
+
+    Ok(ClickResult {
+        clicked,
+        method,
+        x,
+        y,
     })
 }
