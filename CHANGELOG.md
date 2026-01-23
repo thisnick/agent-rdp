@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.4.0...agent-rdp-v0.4.1) (2026-01-23)
+
+
+### Documentation
+
+* add demo video and optimize CI triggers ([#31](https://github.com/thisnick/agent-rdp/issues/31)) ([8d3a4c3](https://github.com/thisnick/agent-rdp/commit/8d3a4c33fc0c524fc9ae54ada1afeaff24222552))
+
 ## [0.4.0](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.3.5...agent-rdp-v0.4.0) (2026-01-23)
 
 
