@@ -1,6 +1,6 @@
 {
   "name": "@agent-rdp/linux-arm64",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "agent-rdp native binary for Linux ARM64",
   "repository": {
     "type": "git",
@@ -8,9 +8,16 @@
     "directory": "packages/linux-arm64"
   },
   "license": "MIT OR Apache-2.0",
-  "os": ["linux"],
-  "cpu": ["arm64"],
-  "files": ["bin", "models"],
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "files": [
+    "bin",
+    "models"
+  ],
   "scripts": {
     "postinstall": "chmod +x bin/agent-rdp 2>/dev/null || true"
   },
