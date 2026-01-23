@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.4.0...agent-rdp-v0.5.0) (2026-01-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* restructure to pnpm workspaces with platform-specific packages ([#33](https://github.com/thisnick/agent-rdp/issues/33))
+
+### Features
+
+* restructure to pnpm workspaces with platform-specific packages ([#33](https://github.com/thisnick/agent-rdp/issues/33)) ([79f6474](https://github.com/thisnick/agent-rdp/commit/79f647472479fc19db33383278116f03097d30ce))
+
 ## [0.4.0](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.3.5...agent-rdp-v0.4.0) (2026-01-23)
 
 
