@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.5](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.3.4...agent-rdp-v0.3.5) (2026-01-23)
+
+
+### Features
+
+* improve snapshot defaults with depth limit and truncation indicator ([ae01dcb](https://github.com/thisnick/agent-rdp/commit/ae01dcbcf5d3311d6cef8e60470ca81914d14b41))
+* improve snapshot defaults with depth limit and truncation indicator ([8d2a84c](https://github.com/thisnick/agent-rdp/commit/8d2a84cc713f8cd1c60768b57b289901e6b9ef0d))
+
 ## [0.3.4](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.3.3...agent-rdp-v0.3.4) (2026-01-23)
 
 
