@@ -6,9 +6,7 @@ A CLI tool for AI agents to control Windows Remote Desktop sessions, built on [I
 
 Claude Code automating SQLite database and table creation via RDP:
 
-[Watch demo video](public/demo.mp4)
-
-https://github.com/thisnick/agent-rdp/raw/main/public/demo.mp4
+https://github.com/user-attachments/assets/91892b39-4edb-412b-b265-55ccd75d7421
 
 ## Features
 
