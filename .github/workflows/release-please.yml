@@ -155,5 +155,6 @@ jobs:
 
       - name: Publish main package
         run: |
+          cp README.md packages/agent-rdp/
           cd packages/agent-rdp
           npm publish --access public --provenance

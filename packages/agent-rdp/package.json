@@ -19,7 +19,9 @@
   },
   "files": [
     "dist",
-    "models"
+    "models",
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build:ts": "tsc",
