@@ -493,6 +493,7 @@ function Invoke-Run {
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = "powershell.exe"
     $startInfo.Arguments = "-NoProfile -Command `"$command $commandArgs`""
+    $startInfo.WorkingDirectory = $env:USERPROFILE
     $startInfo.UseShellExecute = $false
     $startInfo.RedirectStandardOutput = $wait
     $startInfo.RedirectStandardError = $wait
