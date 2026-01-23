@@ -33,7 +33,7 @@ pub async fn run(
         } => AutomateRequest::Snapshot {
             interactive_only: interactive,
             compact,
-            max_depth: depth.unwrap_or(10),
+            max_depth: depth,
             selector,
             focused,
         },

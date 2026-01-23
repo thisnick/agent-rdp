@@ -93,6 +93,12 @@ impl Output {
                 // Print full accessibility tree like agent-browser
                 println!("Snapshot ID: {}", snapshot.snapshot_id);
                 println!("Elements: {}", snapshot.ref_count);
+                if snapshot.truncated {
+                    println!(
+                        "[Truncated at depth {} - use -d to increase or -s to scope to a window]",
+                        snapshot.max_depth
+                    );
+                }
                 println!();
                 self.print_element_tree(&snapshot.root, 0);
             }
