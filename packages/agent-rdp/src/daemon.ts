@@ -4,7 +4,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { spawn } from 'node:child_process';
 import { IpcClient, getSessionDir, getSocketPath } from './client.js';
 import { RdpError } from './types.js';
@@ -12,25 +12,49 @@ import { RdpError } from './types.js';
 const MAX_STARTUP_WAIT_MS = 10000;
 const STARTUP_POLL_INTERVAL_MS = 100;
 
-// ESM equivalent of __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Create require function for resolving platform package paths in ESM
+const require = createRequire(import.meta.url);
+
+/**
+ * Get the platform package name for the current OS/arch.
+ */
+function getPlatformPackage(): string {
+  const platform = process.platform; // 'darwin', 'linux', 'win32'
+  const arch = process.arch; // 'arm64', 'x64'
+  return `@agent-rdp/${platform}-${arch}`;
+}
 
 /**
  * Find the agent-rdp binary.
  */
 function findBinary(): string {
-  // When running from source (dist/ -> package root)
-  const packageDir = path.resolve(__dirname, '..');
+  const platformPackage = getPlatformPackage();
+  const ext = process.platform === 'win32' ? '.exe' : '';
 
-  // Check for npm package bin wrapper
-  const binScript = path.join(packageDir, 'bin', 'agent-rdp');
-  if (fs.existsSync(binScript)) {
-    return binScript;
+  try {
+    // Resolve the platform package's package.json, then find the binary
+    const packageJsonPath = require.resolve(`${platformPackage}/package.json`);
+    const packageDir = path.dirname(packageJsonPath);
+    const binaryPath = path.join(packageDir, 'bin', `agent-rdp${ext}`);
+
+    if (!fs.existsSync(binaryPath)) {
+      throw new RdpError(
+        'internal_error',
+        `Binary not found at ${binaryPath}. Platform package ${platformPackage} may not be installed correctly.`
+      );
+    }
+
+    return binaryPath;
+  } catch (err) {
+    if (err instanceof RdpError) {
+      throw err;
+    }
+    throw new RdpError(
+      'not_supported',
+      `Platform package ${platformPackage} is not installed. ` +
+        `Make sure you have the correct optional dependency installed for your platform.`
+    );
   }
-
-  // Fall back to PATH
-  return 'agent-rdp';
 }
 
 /**

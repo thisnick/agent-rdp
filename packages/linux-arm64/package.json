@@ -1,0 +1,15 @@
+{
+  "name": "@agent-rdp/linux-arm64",
+  "version": "0.4.0",
+  "description": "agent-rdp native binary for Linux ARM64",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thisnick/agent-rdp.git",
+    "directory": "packages/linux-arm64"
+  },
+  "license": "MIT OR Apache-2.0",
+  "os": ["linux"],
+  "cpu": ["arm64"],
+  "files": ["bin"],
+  "preferUnplugged": true
+}

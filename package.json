@@ -1,51 +1,18 @@
 {
-  "name": "agent-rdp",
-  "version": "0.4.0",
-  "description": "CLI tool for AI agents to control Windows Remote Desktop sessions",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/thisnick/agent-rdp.git"
-  },
-  "license": "MIT OR Apache-2.0",
+  "name": "agent-rdp-monorepo",
+  "private": true,
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
-  "bin": {
-    "agent-rdp": "./bin/agent-rdp"
-  },
-  "files": [
-    "bin",
-    "dist",
-    "models"
-  ],
   "scripts": {
-    "build:ts": "tsc",
-    "build": "cargo build --release && node scripts/copy-native.cjs",
+    "build": "pnpm run build:rust && pnpm run build:ts",
+    "build:ts": "pnpm --filter agent-rdp run build:ts",
+    "build:rust": "cargo build --release && node scripts/copy-native.cjs",
     "build:all": "node scripts/build-all.cjs",
-    "prepublishOnly": "npm run build:ts",
+    "cli": "node packages/agent-rdp/bin/cli.js",
     "example": "tsx examples/typescript/hello-world.ts",
-    "lint": "eslint src examples",
-    "lint:fix": "eslint src examples --fix",
+    "lint": "eslint packages/agent-rdp/src examples",
+    "lint:fix": "eslint packages/agent-rdp/src examples --fix",
     "lint:ps1": "pwsh -NoProfile -File scripts/lint-ps1.ps1"
   },
-  "keywords": [
-    "rdp",
-    "remote-desktop",
-    "windows",
-    "automation",
-    "cli",
-    "agent"
-  ],
-  "bugs": {
-    "url": "https://github.com/thisnick/agent-rdp/issues"
-  },
-  "homepage": "https://github.com/thisnick/agent-rdp#readme",
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^8.53.1",

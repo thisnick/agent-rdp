@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Copy native binary to bin directory for local development.
+ * Copy native binary to the appropriate platform package for local development.
  */
 
 const { copyFileSync, existsSync, mkdirSync, chmodSync } = require('fs');
@@ -9,7 +9,6 @@ const { join } = require('path');
 const { platform, arch } = require('os');
 
 const projectRoot = join(__dirname, '..');
-const binDir = join(projectRoot, 'bin');
 
 // Platform detection
 function getPlatformKey() {
@@ -36,11 +35,14 @@ function getPlatformKey() {
 
 const { os, arch: architecture } = getPlatformKey();
 const ext = os === 'win32' ? '.exe' : '';
-const binaryName = `agent-rdp-${os}-${architecture}${ext}`;
+const packageName = `${os}-${architecture}`;
 
 // Source: cargo build output
 const sourceBinary = join(projectRoot, 'target', 'release', `agent-rdp${ext}`);
-const destBinary = join(binDir, binaryName);
+
+// Destination: platform package bin directory
+const destDir = join(projectRoot, 'packages', packageName, 'bin');
+const destBinary = join(destDir, `agent-rdp${ext}`);
 
 if (!existsSync(sourceBinary)) {
   console.error(`Error: Binary not found at ${sourceBinary}`);
@@ -49,8 +51,8 @@ if (!existsSync(sourceBinary)) {
 }
 
 // Ensure bin directory exists
-if (!existsSync(binDir)) {
-  mkdirSync(binDir, { recursive: true });
+if (!existsSync(destDir)) {
+  mkdirSync(destDir, { recursive: true });
 }
 
 copyFileSync(sourceBinary, destBinary);
@@ -60,4 +62,4 @@ if (os !== 'win32') {
   chmodSync(destBinary, 0o755);
 }
 
-console.log(`Copied ${binaryName} to bin/`);
+console.log(`Copied binary to packages/${packageName}/bin/agent-rdp${ext}`);
