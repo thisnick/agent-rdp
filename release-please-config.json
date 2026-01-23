@@ -19,15 +19,7 @@
         {"type": "test", "section": "Tests", "hidden": true},
         {"type": "ci", "section": "CI", "hidden": true}
       ],
-      "extra-files": [
-        "../../Cargo.toml",
-        "../darwin-arm64/package.json",
-        "../darwin-x64/package.json",
-        "../linux-x64/package.json",
-        "../linux-arm64/package.json",
-        "../win32-x64/package.json",
-        "../win32-arm64/package.json"
-      ]
+"extra-files": []
     }
   },
   "plugins": [
