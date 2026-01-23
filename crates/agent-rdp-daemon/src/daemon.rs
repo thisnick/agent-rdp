@@ -16,6 +16,9 @@ use crate::ws_server::WsServerHandle;
 /// Shared WebSocket server state that can be started/stopped dynamically.
 pub type SharedWsHandle = Arc<Mutex<Option<WsServerHandle>>>;
 
+/// Clipboard change notification receiver (from RDP clipboard backend to daemon).
+pub type ClipboardChangedRx = Arc<Mutex<Option<tokio::sync::mpsc::UnboundedReceiver<()>>>>;
+
 /// The main daemon that manages an RDP session.
 pub struct Daemon {
     /// Session name.
@@ -47,6 +50,9 @@ pub struct Daemon {
 
     /// WebSocket streaming frame rate (used for frame broadcasting).
     stream_fps: u32,
+
+    /// Clipboard change notification receiver (set up when RDP connects with WS streaming).
+    clipboard_changed_rx: ClipboardChangedRx,
 }
 
 impl Daemon {
@@ -75,6 +81,9 @@ impl Daemon {
         // WebSocket server is started dynamically when connect is called with stream_port > 0
         let ws_handle = Arc::new(Mutex::new(None));
 
+        // Clipboard channels (receivers set up when RDP connects with WS streaming)
+        let clipboard_changed_rx = Arc::new(Mutex::new(None));
+
         info!("Daemon started for session '{}' at {:?}", session_name, socket_path);
 
         Ok(Self {
@@ -88,6 +97,7 @@ impl Daemon {
             disconnect_tx,
             ws_handle,
             stream_fps,
+            clipboard_changed_rx,
         })
     }
 
@@ -113,9 +123,10 @@ impl Daemon {
                             let start_time = self.start_time;
                             let shutdown_tx = self.shutdown_tx.clone();
                             let disconnect_tx = self.disconnect_tx.clone();
+                            let clipboard_changed_rx = Arc::clone(&self.clipboard_changed_rx);
 
                             tokio::spawn(async move {
-                                if let Err(e) = handle_client(stream, session, automation_state, ws_handle, session_name, start_time, shutdown_tx, disconnect_tx).await {
+                                if let Err(e) = handle_client(stream, session, automation_state, ws_handle, session_name, start_time, shutdown_tx, disconnect_tx, clipboard_changed_rx).await {
                                     error!("Client handler error: {}", e);
                                 }
                             });
@@ -162,6 +173,24 @@ impl Daemon {
                         }
                     }
                 }
+
+                // Handle clipboard changed notifications from RDP backend
+                result = async {
+                    let mut rx_guard = self.clipboard_changed_rx.lock().await;
+                    if let Some(ref mut rx) = *rx_guard {
+                        rx.recv().await
+                    } else {
+                        std::future::pending().await
+                    }
+                } => {
+                    if result.is_some() {
+                        // Remote clipboard changed - notify WebSocket clients
+                        let ws_handle = self.ws_handle.lock().await;
+                        if let Some(ref handle) = *ws_handle {
+                            handle.broadcast_clipboard_changed();
+                        }
+                    }
+                }
             }
         }
 
@@ -203,6 +232,7 @@ async fn handle_client(
     start_time: Instant,
     shutdown_tx: broadcast::Sender<()>,
     disconnect_tx: tokio::sync::mpsc::Sender<()>,
+    clipboard_changed_rx: ClipboardChangedRx,
 ) -> anyhow::Result<()> {
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
@@ -240,6 +270,7 @@ async fn handle_client(
             &session_name,
             start_time,
             &disconnect_tx,
+            &clipboard_changed_rx,
         ).await;
 
         let json = serde_json::to_string(&response)? + "\n";
@@ -266,6 +297,7 @@ async fn process_request(
     session_name: &str,
     start_time: Instant,
     disconnect_tx: &tokio::sync::mpsc::Sender<()>,
+    clipboard_changed_rx: &ClipboardChangedRx,
 ) -> Response {
     match request {
         Request::Ping => Response::success(ResponseData::Pong),
@@ -300,7 +332,7 @@ async fn process_request(
         }
 
         Request::Connect(params) => {
-            handlers::connect::handle(rdp_session, automation_state, ws_handle, params, disconnect_tx.clone()).await
+            handlers::connect::handle(rdp_session, automation_state, ws_handle, params, disconnect_tx.clone(), clipboard_changed_rx).await
         }
 
         Request::Disconnect => {

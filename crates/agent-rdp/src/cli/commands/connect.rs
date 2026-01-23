@@ -36,6 +36,8 @@ pub async fn run(
         drives,
         enable_win_automation: args.enable_win_automation,
         stream_port,
+        // CLI enables the viewer HTML when streaming is enabled
+        serve_viewer: stream_port > 0,
         ..Default::default()
     });
 

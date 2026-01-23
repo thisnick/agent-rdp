@@ -85,8 +85,8 @@ pub struct ViewArgs {
 /// Connect command arguments.
 #[derive(Parser)]
 pub struct ConnectArgs {
-    /// Server hostname or IP
-    #[arg(long, required = true)]
+    /// Server hostname or IP (or set AGENT_RDP_HOST)
+    #[arg(long, env = "AGENT_RDP_HOST", required = true)]
     pub host: String,
 
     /// Server port

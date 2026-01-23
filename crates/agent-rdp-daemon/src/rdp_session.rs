@@ -484,6 +484,14 @@ impl RdpSession {
         let _ = self.command_tx.send(SessionCommand::Shutdown).await;
         Ok(())
     }
+
+    /// Set up clipboard change notification channel (for WebSocket integration).
+    /// When the remote clipboard changes, a message will be sent through this channel.
+    pub fn set_clipboard_changed_notify(&self, tx: mpsc::UnboundedSender<()>) {
+        let state = self.shared.read();
+        let mut clipboard = state.clipboard.lock();
+        clipboard.clipboard_changed_tx = Some(tx);
+    }
 }
 
 /// Background task that continuously processes RDP frames.

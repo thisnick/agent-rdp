@@ -39,6 +39,28 @@ pub struct KeyboardInputMessage {
     pub text: Option<String>,
 }
 
+/// Clipboard content payload.
+#[derive(Debug, Clone, Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipboardContent {
+    pub content_type: String,
+    #[serde(default)]
+    pub text: Option<String>,
+}
+
+/// Clipboard get request payload.
+#[derive(Debug, Deserialize)]
+pub struct ClipboardGetPayload {
+    #[serde(default)]
+    pub formats: Vec<String>,
+}
+
+/// Clipboard set payload (client setting clipboard before paste).
+#[derive(Debug, Deserialize)]
+pub struct ClipboardSetPayload {
+    pub text: String,
+}
+
 /// Generic WebSocket input message (for dispatching).
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
@@ -47,6 +69,10 @@ pub enum WsInputMessage {
     Mouse(MouseInputPayload),
     #[serde(rename = "input_keyboard")]
     Keyboard(KeyboardInputPayload),
+    #[serde(rename = "clipboard_get")]
+    ClipboardGet(ClipboardGetPayload),
+    #[serde(rename = "clipboard_set")]
+    ClipboardSet(ClipboardSetPayload),
 }
 
 /// Mouse input payload (fields only, without type tag).

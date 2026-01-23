@@ -64,12 +64,16 @@
     #connectBtn.connected:hover {
       background: #c0392b;
     }
-    #fullscreenBtn {
+    #fullscreenBtn, #pasteBtn {
       background: #333;
       color: #fff;
     }
-    #fullscreenBtn:hover {
+    #fullscreenBtn:hover, #pasteBtn:hover {
       background: #444;
+    }
+    #pasteBtn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
     #status {
       font-size: 13px;
@@ -120,6 +124,7 @@
     <label for="url">WebSocket:</label>
     <input type="text" id="url" value="ws://localhost:9224" placeholder="ws://localhost:9224">
     <button id="connectBtn" onclick="toggleConnection()">Connect</button>
+    <button id="pasteBtn" onclick="sendClipboardToRemote()" disabled>Send Clipboard to Remote</button>
     <button id="fullscreenBtn" onclick="toggleFullscreen()">Fullscreen</button>
     <span id="status" class="disconnected">Disconnected</span>
     <span id="info"></span>
@@ -131,6 +136,7 @@
   <script>
     const urlInput = document.getElementById('url');
     const connectBtn = document.getElementById('connectBtn');
+    const pasteBtn = document.getElementById('pasteBtn');
     const statusSpan = document.getElementById('status');
     const infoSpan = document.getElementById('info');
     const viewer = document.getElementById('viewer');
@@ -163,7 +169,7 @@
       const maxW = viewer.clientWidth - padding;
       const maxH = viewer.clientHeight - padding;
 
-      const scale = Math.min(1, maxW / canvas.width, maxH / canvas.height);
+      const scale = Math.min(maxW / canvas.width, maxH / canvas.height);
 
       canvas.style.width = `${Math.round(canvas.width * scale)}px`;
       canvas.style.height = `${Math.round(canvas.height * scale)}px`;
@@ -197,6 +203,7 @@
         connected = true;
         connectBtn.textContent = 'Disconnect';
         connectBtn.classList.add('connected');
+        pasteBtn.disabled = false;
         setStatus('Connected', 'connected');
         canvas.focus();
       };
@@ -205,6 +212,7 @@
         connected = false;
         connectBtn.textContent = 'Connect';
         connectBtn.classList.remove('connected');
+        pasteBtn.disabled = true;
         setStatus('Disconnected', 'disconnected');
         ws = null;
       };
@@ -229,7 +237,7 @@
       }
     }
 
-    function handleMessage(msg) {
+    async function handleMessage(msg) {
       if (msg.type === 'frame') {
         const img = new Image();
         img.onload = () => {
@@ -254,12 +262,37 @@
           deviceHeight = msg.viewportHeight;
           updateInfo();
         }
+      } else if (msg.type === 'clipboard_changed') {
+        // Remote clipboard changed - request the content
+        sendInput({ type: 'clipboard_get', formats: ['text'] });
+      } else if (msg.type === 'clipboard_data') {
+        // Response to our clipboard_get request - write to local clipboard
+        if (msg.content?.contentType === 'text' && msg.content?.text) {
+          try {
+            await navigator.clipboard.writeText(msg.content.text);
+          } catch (e) {
+            console.warn('Cannot write to clipboard:', e);
+          }
+        }
       }
     }
 
     function sendInput(msg) {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(msg));
+      }
+    }
+
+    // Send local clipboard content to remote
+    async function sendClipboardToRemote() {
+      if (!connected) return;
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          sendInput({ type: 'clipboard_set', text });
+        }
+      } catch (err) {
+        console.warn('Cannot read clipboard:', err);
       }
     }
 
@@ -286,6 +319,7 @@
     // Mouse events
     canvas.addEventListener('mousedown', (e) => {
       e.preventDefault();
+      canvas.focus();
       const pos = getMousePos(e);
       sendInput({
         type: 'input_mouse',

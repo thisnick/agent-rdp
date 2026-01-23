@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 use tracing::{info, warn};
 
 use crate::automation::{AutomationBootstrap, SharedAutomationState};
-use crate::daemon::SharedWsHandle;
+use crate::daemon::{ClipboardChangedRx, SharedWsHandle};
 use crate::rdp_session::{DisconnectNotify, RdpConfig, RdpSession};
 use crate::ws_server::{WsServer, WsServerConfig};
 
@@ -18,11 +18,13 @@ pub async fn handle(
     ws_handle: &SharedWsHandle,
     params: ConnectRequest,
     disconnect_notify: DisconnectNotify,
+    clipboard_changed_rx: &ClipboardChangedRx,
 ) -> Response {
     let enable_automation = params.enable_win_automation;
     let stream_port = params.stream_port;
     let stream_fps = params.stream_fps;
     let stream_quality = params.stream_quality;
+    let serve_viewer = params.serve_viewer;
 
     // Auto-disconnect if already connected (handles stale/dropped connections)
     {
@@ -121,12 +123,22 @@ pub async fn handle(
                 port: stream_port,
                 fps: stream_fps,
                 jpeg_quality: stream_quality,
+                serve_viewer,
             };
             let ws_server = WsServer::new(config);
             match ws_server.start(Arc::clone(rdp_session)).await {
                 Ok(handle) => {
                     info!("WebSocket streaming enabled on port {}", stream_port);
                     *ws = Some(handle);
+
+                    // Set up clipboard change notification channel
+                    let session = rdp_session.lock().await;
+                    if let Some(ref rdp) = *session {
+                        let (changed_tx, changed_rx) = tokio::sync::mpsc::unbounded_channel();
+                        rdp.set_clipboard_changed_notify(changed_tx);
+                        *clipboard_changed_rx.lock().await = Some(changed_rx);
+                        info!("Clipboard WebSocket integration enabled");
+                    }
                 }
                 Err(e) => {
                     warn!("Failed to start WebSocket server: {}", e);
