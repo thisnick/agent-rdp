@@ -80,14 +80,17 @@ function Test-IsEmptyStructural {
 function Get-AccessibilityTree {
     param(
         [System.Windows.Automation.AutomationElement]$Element,
-        [int]$MaxDepth = 10,
+        [int]$MaxDepth = 5,
         [int]$CurrentDepth = 0,
         [ref]$RefCounter,
         [bool]$InteractiveOnly = $false,
         [bool]$Compact = $false
     )
 
-    if ($CurrentDepth -gt $MaxDepth) { return $null }
+    if ($CurrentDepth -gt $MaxDepth) {
+        $script:WasTruncated = $true
+        return $null
+    }
 
     # For interactive filter, check if this element or any descendant is interactive
     $isInteractive = Test-IsInteractive $Element
@@ -186,10 +189,11 @@ function Invoke-Snapshot {
     param($Params)
 
     $script:RefMap = @{}
+    $script:WasTruncated = $false
     $refCounter = [ref]0
     $script:SnapshotId = [guid]::NewGuid().ToString().Substring(0, 8)
 
-    $maxDepth = if ($null -ne $Params.max_depth) { [int]$Params.max_depth } else { 10 }
+    $maxDepth = if ($null -ne $Params.max_depth) { [int]$Params.max_depth } else { 5 }
     $interactiveOnly = if ($null -ne $Params.interactive_only) { $Params.interactive_only } else { $false }
     $compact = if ($null -ne $Params.compact) { $Params.compact } else { $false }
     $focused = if ($null -ne $Params.focused) { $Params.focused } else { $false }
@@ -221,6 +225,8 @@ function Invoke-Snapshot {
     return @{
         snapshot_id = $script:SnapshotId
         ref_count = $refCounter.Value
+        truncated = $script:WasTruncated
+        max_depth = $maxDepth
         root = $tree
     }
 }

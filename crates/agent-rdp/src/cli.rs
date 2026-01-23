@@ -334,9 +334,9 @@ pub enum AutomateAction {
         #[arg(short = 'c', long)]
         compact: bool,
 
-        /// Maximum tree depth (default: 10)
-        #[arg(short = 'd', long)]
-        depth: Option<u32>,
+        /// Maximum tree depth (default: 5)
+        #[arg(short = 'd', long, default_value = "5")]
+        depth: u32,
 
         /// Scope to a specific element (window, panel, etc.) via selector
         #[arg(short = 's', long)]

@@ -215,6 +215,12 @@ pub struct AccessibilitySnapshot {
     pub snapshot_id: String,
     /// Total number of elements with refs.
     pub ref_count: u32,
+    /// Whether the tree was truncated due to depth limit.
+    #[serde(default)]
+    pub truncated: bool,
+    /// Maximum depth used for this snapshot.
+    #[serde(default)]
+    pub max_depth: u32,
     /// Root element of the tree.
     pub root: AccessibilityElement,
 }

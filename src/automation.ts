@@ -17,7 +17,7 @@ export interface SnapshotOptions {
   interactive?: boolean;
   /** Compact mode - remove empty structural elements. */
   compact?: boolean;
-  /** Maximum tree depth (default: 10). */
+  /** Maximum tree depth (default: 5). */
   depth?: number;
   /** Scope to a specific element (window, panel, etc.) via selector. */
   selector?: string;

@@ -397,6 +397,10 @@ export interface AutomationSnapshot {
   type: 'snapshot';
   snapshot_id: string;
   ref_count: number;
+  /** Whether the tree was truncated due to depth limit. */
+  truncated?: boolean;
+  /** Maximum depth used for this snapshot. */
+  max_depth?: number;
   root: AutomationElement;
 }
 
