@@ -13,13 +13,12 @@ function Invoke-Click {
         throw "Element no longer exists (window may have closed)"
     }
 
-    # Check if element is enabled (modal dialogs disable parent window elements)
+    # Check if element is enabled
     if (-not $element.Current.IsEnabled) {
-        throw "Element is disabled (a modal dialog may be open)"
+        throw "Element is disabled"
     }
 
-    # Use mouse click via SendInput. This is non-blocking and reliable,
-    # unlike InvokePattern.Invoke() which blocks when opening modal dialogs.
+    # Use mouse click via SendInput for reliable, non-blocking interaction.
 
     $doubleClick = if ($null -ne $Params.double_click) { $Params.double_click } else { $false }
 

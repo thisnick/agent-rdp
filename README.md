@@ -2,6 +2,14 @@
 
 A CLI tool for AI agents to control Windows Remote Desktop sessions, built on [IronRDP](https://github.com/Devolutions/IronRDP).
 
+## Demo
+
+Claude Code automating SQLite database and table creation via RDP:
+
+[Watch demo video](public/demo.mp4)
+
+https://github.com/thisnick/agent-rdp/raw/main/public/demo.mp4
+
 ## Features
 
 - **Connect to RDP servers** - Full RDP protocol support with TLS and CredSSP authentication
