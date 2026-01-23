@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.4](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.3.3...agent-rdp-v0.3.4) (2026-01-23)
+
+
+### Features
+
+* add --process-timeout flag to automate run command ([fe2ca21](https://github.com/thisnick/agent-rdp/commit/fe2ca2170d518afba94e98971db04b1303a0bdcc))
+* add --process-timeout flag to automate run command ([ef0625c](https://github.com/thisnick/agent-rdp/commit/ef0625cd24b6507063b560b6485ffcd1bc86d96c))
+* add WebSocket clipboard support and serve viewer from daemon ([a44d4f9](https://github.com/thisnick/agent-rdp/commit/a44d4f983f743ce2615d2ee71a6dbbacadd50ca6))
+* add WebSocket clipboard support and serve viewer from daemon ([058c8c5](https://github.com/thisnick/agent-rdp/commit/058c8c5888f50fb1f7ed6b51def50a8e86f5aacc))
+
 ## [0.3.3](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.3.2...agent-rdp-v0.3.3) (2026-01-22)
 
 
