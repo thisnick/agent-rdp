@@ -3,10 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm -r run build:ts",
+    "build": "pnpm run build:rust && pnpm run build:ts",
     "build:ts": "pnpm --filter agent-rdp run build:ts",
     "build:rust": "cargo build --release && node scripts/copy-native.cjs",
     "build:all": "node scripts/build-all.cjs",
+    "cli": "node packages/agent-rdp/bin/cli.js",
     "example": "tsx examples/typescript/hello-world.ts",
     "lint": "eslint packages/agent-rdp/src examples",
     "lint:fix": "eslint packages/agent-rdp/src examples --fix",

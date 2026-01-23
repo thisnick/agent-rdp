@@ -17,7 +17,11 @@
       "import": "./dist/index.js"
     }
   },
+  "bin": {
+    "agent-rdp": "./bin/cli.js"
+  },
   "files": [
+    "bin",
     "dist",
     "models",
     "README.md",
