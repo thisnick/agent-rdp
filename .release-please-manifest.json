@@ -1,9 +1,9 @@
 {
-  "packages/agent-rdp": "0.5.1",
-  "packages/darwin-arm64": "0.5.1",
-  "packages/darwin-x64": "0.5.1",
-  "packages/linux-x64": "0.5.1",
-  "packages/linux-arm64": "0.5.1",
-  "packages/win32-x64": "0.5.1",
-  "packages/win32-arm64": "0.5.1"
+  "packages/agent-rdp": "1.0.0",
+  "packages/darwin-arm64": "1.0.0",
+  "packages/darwin-x64": "1.0.0",
+  "packages/linux-x64": "1.0.0",
+  "packages/linux-arm64": "1.0.0",
+  "packages/win32-x64": "1.0.0",
+  "packages/win32-arm64": "1.0.0"
 }

@@ -1,6 +1,6 @@
 {
   "name": "@agent-rdp/darwin-arm64",
-  "version": "0.5.1",
+  "version": "1.0.0",
   "description": "agent-rdp native binary for macOS ARM64 (Apple Silicon)",
   "repository": {
     "type": "git",
@@ -8,9 +8,16 @@
     "directory": "packages/darwin-arm64"
   },
   "license": "MIT OR Apache-2.0",
-  "os": ["darwin"],
-  "cpu": ["arm64"],
-  "files": ["bin", "models"],
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "files": [
+    "bin",
+    "models"
+  ],
   "scripts": {
     "postinstall": "chmod +x bin/agent-rdp 2>/dev/null || true"
   },
