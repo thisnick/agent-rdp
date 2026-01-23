@@ -18,8 +18,37 @@
         {"type": "chore", "section": "Maintenance", "hidden": true},
         {"type": "test", "section": "Tests", "hidden": true},
         {"type": "ci", "section": "CI", "hidden": true}
-      ],
-"extra-files": []
+      ]
+    },
+    "packages/darwin-arm64": {
+      "release-type": "node",
+      "component": "darwin-arm64",
+      "skip-github-release": true
+    },
+    "packages/darwin-x64": {
+      "release-type": "node",
+      "component": "darwin-x64",
+      "skip-github-release": true
+    },
+    "packages/linux-x64": {
+      "release-type": "node",
+      "component": "linux-x64",
+      "skip-github-release": true
+    },
+    "packages/linux-arm64": {
+      "release-type": "node",
+      "component": "linux-arm64",
+      "skip-github-release": true
+    },
+    "packages/win32-x64": {
+      "release-type": "node",
+      "component": "win32-x64",
+      "skip-github-release": true
+    },
+    "packages/win32-arm64": {
+      "release-type": "node",
+      "component": "win32-arm64",
+      "skip-github-release": true
     }
   },
   "plugins": [
@@ -27,7 +56,13 @@
       "type": "linked-versions",
       "groupName": "agent-rdp packages",
       "components": [
-        "agent-rdp"
+        "agent-rdp",
+        "darwin-arm64",
+        "darwin-x64",
+        "linux-x64",
+        "linux-arm64",
+        "win32-x64",
+        "win32-arm64"
       ]
     }
   ]
