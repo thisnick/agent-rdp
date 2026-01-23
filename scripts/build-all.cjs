@@ -16,16 +16,16 @@ const path = require('path');
 
 const TARGETS = [
   // macOS (native cargo, no cross needed)
-  { target: 'aarch64-apple-darwin', output: 'agent-rdp-darwin-arm64', useCross: false },
-  { target: 'x86_64-apple-darwin', output: 'agent-rdp-darwin-x64', useCross: false },
+  { target: 'aarch64-apple-darwin', package: 'darwin-arm64', useCross: false },
+  { target: 'x86_64-apple-darwin', package: 'darwin-x64', useCross: false },
   // Linux
-  { target: 'x86_64-unknown-linux-gnu', output: 'agent-rdp-linux-x64', useCross: true },
-  { target: 'aarch64-unknown-linux-gnu', output: 'agent-rdp-linux-arm64', useCross: true },
+  { target: 'x86_64-unknown-linux-gnu', package: 'linux-x64', useCross: true },
+  { target: 'aarch64-unknown-linux-gnu', package: 'linux-arm64', useCross: true },
   // Windows
-  { target: 'x86_64-pc-windows-gnu', output: 'agent-rdp-win32-x64.exe', useCross: true },
+  { target: 'x86_64-pc-windows-gnu', package: 'win32-x64', useCross: true },
 ];
 
-const BIN_DIR = path.join(__dirname, '..', 'bin');
+const PROJECT_ROOT = path.join(__dirname, '..');
 
 function run(cmd) {
   console.log(`> ${cmd}`);
@@ -37,15 +37,22 @@ function build(target, useCross) {
   run(`${builder} build --release --target ${target}`);
 }
 
-function copyBinary(target, output) {
-  const ext = target.includes('windows') ? '.exe' : '';
-  const src = path.join(__dirname, '..', 'target', target, 'release', `agent-rdp${ext}`);
-  const dest = path.join(BIN_DIR, output);
+function copyBinary(target, packageName) {
+  const isWindows = target.includes('windows');
+  const ext = isWindows ? '.exe' : '';
+  const src = path.join(PROJECT_ROOT, 'target', target, 'release', `agent-rdp${ext}`);
+  const destDir = path.join(PROJECT_ROOT, 'packages', packageName, 'bin');
+  const dest = path.join(destDir, `agent-rdp${ext}`);
 
   if (fs.existsSync(src)) {
+    if (!fs.existsSync(destDir)) {
+      fs.mkdirSync(destDir, { recursive: true });
+    }
     fs.copyFileSync(src, dest);
-    fs.chmodSync(dest, 0o755);
-    console.log(`Copied: ${dest}`);
+    if (!isWindows) {
+      fs.chmodSync(dest, 0o755);
+    }
+    console.log(`Copied: packages/${packageName}/bin/agent-rdp${ext}`);
   } else {
     console.error(`Warning: ${src} not found`);
   }
@@ -94,11 +101,11 @@ async function main() {
 
   console.log(`Building ${targets.length} target(s)...\n`);
 
-  for (const { target, output, useCross } of targets) {
+  for (const { target, package: packageName, useCross } of targets) {
     console.log(`\n=== Building ${target} ===\n`);
     try {
       build(target, useCross);
-      copyBinary(target, output);
+      copyBinary(target, packageName);
     } catch (err) {
       console.error(`Failed to build ${target}: ${err.message}`);
       process.exit(1);

@@ -8,7 +8,7 @@
  *   AGENT_RDP_HOST=192.168.1.100 AGENT_RDP_USERNAME=Admin AGENT_RDP_PASSWORD=secret npx tsx examples/hello-world.ts
  */
 
-import { RdpSession, DriveMapping } from '../../src/index.js';
+import { RdpSession, DriveMapping } from '../../packages/agent-rdp/src/index.js';
 
 // Parse arguments
 function getArg(name: string, envVar?: string): string | undefined {

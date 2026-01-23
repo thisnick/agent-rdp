@@ -1,0 +1,48 @@
+{
+  "name": "agent-rdp",
+  "version": "0.4.0",
+  "description": "CLI tool for AI agents to control Windows Remote Desktop sessions",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thisnick/agent-rdp.git",
+    "directory": "packages/agent-rdp"
+  },
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "models"
+  ],
+  "scripts": {
+    "build:ts": "tsc",
+    "prepublishOnly": "npm run build:ts"
+  },
+  "keywords": [
+    "rdp",
+    "remote-desktop",
+    "windows",
+    "automation",
+    "cli",
+    "agent"
+  ],
+  "bugs": {
+    "url": "https://github.com/thisnick/agent-rdp/issues"
+  },
+  "homepage": "https://github.com/thisnick/agent-rdp#readme",
+  "optionalDependencies": {
+    "@agent-rdp/darwin-arm64": "workspace:*",
+    "@agent-rdp/darwin-x64": "workspace:*",
+    "@agent-rdp/linux-x64": "workspace:*",
+    "@agent-rdp/linux-arm64": "workspace:*",
+    "@agent-rdp/win32-x64": "workspace:*",
+    "@agent-rdp/win32-arm64": "workspace:*"
+  }
+}

@@ -1,8 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "group-pull-request-title-pattern": "chore(main): release ${version}",
   "packages": {
-    ".": {
+    "packages/agent-rdp": {
       "release-type": "node",
+      "component": "agent-rdp",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "draft": false,
@@ -18,8 +20,23 @@
         {"type": "ci", "section": "CI", "hidden": true}
       ],
       "extra-files": [
-        "Cargo.toml"
+        "../../Cargo.toml",
+        "../darwin-arm64/package.json",
+        "../darwin-x64/package.json",
+        "../linux-x64/package.json",
+        "../linux-arm64/package.json",
+        "../win32-x64/package.json",
+        "../win32-arm64/package.json"
       ]
     }
-  }
+  },
+  "plugins": [
+    {
+      "type": "linked-versions",
+      "groupName": "agent-rdp packages",
+      "components": [
+        "agent-rdp"
+      ]
+    }
+  ]
 }

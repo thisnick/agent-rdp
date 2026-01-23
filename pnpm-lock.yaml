@@ -27,6 +27,39 @@ importers:
         specifier: ^5.3.0
         version: 5.9.3
 
+  packages/agent-rdp:
+    optionalDependencies:
+      '@agent-rdp/darwin-arm64':
+        specifier: workspace:*
+        version: link:../darwin-arm64
+      '@agent-rdp/darwin-x64':
+        specifier: workspace:*
+        version: link:../darwin-x64
+      '@agent-rdp/linux-arm64':
+        specifier: workspace:*
+        version: link:../linux-arm64
+      '@agent-rdp/linux-x64':
+        specifier: workspace:*
+        version: link:../linux-x64
+      '@agent-rdp/win32-arm64':
+        specifier: workspace:*
+        version: link:../win32-arm64
+      '@agent-rdp/win32-x64':
+        specifier: workspace:*
+        version: link:../win32-x64
+
+  packages/darwin-arm64: {}
+
+  packages/darwin-x64: {}
+
+  packages/linux-arm64: {}
+
+  packages/linux-x64: {}
+
+  packages/win32-arm64: {}
+
+  packages/win32-x64: {}
+
 packages:
 
   '@esbuild/aix-ppc64@0.27.2':

@@ -3,7 +3,7 @@ import tsparser from '@typescript-eslint/parser';
 
 export default [
   {
-    files: ['src/**/*.ts', 'examples/**/*.ts'],
+    files: ['packages/agent-rdp/src/**/*.ts', 'examples/**/*.ts'],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
@@ -30,6 +30,6 @@ export default [
     },
   },
   {
-    ignores: ['dist/**', 'node_modules/**', 'bin/**', 'scripts/**'],
+    ignores: ['**/dist/**', '**/node_modules/**', '**/bin/**', 'scripts/**'],
   },
 ];

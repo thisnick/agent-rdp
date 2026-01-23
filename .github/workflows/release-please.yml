@@ -30,23 +30,23 @@ jobs:
         include:
           - os: macos-latest
             target: aarch64-apple-darwin
-            binary: agent-rdp-darwin-arm64
+            package: darwin-arm64
           - os: macos-latest
             target: x86_64-apple-darwin
-            binary: agent-rdp-darwin-x64
+            package: darwin-x64
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            binary: agent-rdp-linux-x64
+            package: linux-x64
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-            binary: agent-rdp-linux-arm64
+            package: linux-arm64
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            binary: agent-rdp-win32-x64.exe
+            package: win32-x64
             rustflags: "-C target-feature=+crt-static"
           - os: windows-11-arm
             target: aarch64-pc-windows-msvc
-            binary: agent-rdp-win32-arm64.exe
+            package: win32-arm64
             rustflags: "-C target-feature=+crt-static"
 
     runs-on: ${{ matrix.os }}
@@ -64,22 +64,24 @@ jobs:
           RUSTFLAGS: ${{ matrix.rustflags }}
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Rename binary (Unix)
+      - name: Copy binary to package (Unix)
         if: runner.os != 'Windows'
         run: |
-          cp target/${{ matrix.target }}/release/agent-rdp ${{ matrix.binary }}
-          chmod +x ${{ matrix.binary }}
+          mkdir -p packages/${{ matrix.package }}/bin
+          cp target/${{ matrix.target }}/release/agent-rdp packages/${{ matrix.package }}/bin/
+          chmod +x packages/${{ matrix.package }}/bin/agent-rdp
 
-      - name: Rename binary (Windows)
+      - name: Copy binary to package (Windows)
         if: runner.os == 'Windows'
         run: |
-          copy target\${{ matrix.target }}\release\agent-rdp.exe ${{ matrix.binary }}
+          New-Item -ItemType Directory -Force -Path packages/${{ matrix.package }}/bin
+          Copy-Item target/${{ matrix.target }}/release/agent-rdp.exe packages/${{ matrix.package }}/bin/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.binary }}
-          path: ${{ matrix.binary }}
+          name: ${{ matrix.package }}
+          path: packages/${{ matrix.package }}/
 
   publish:
     needs: [release-please, build]
@@ -97,10 +99,25 @@ jobs:
         with:
           path: artifacts
 
+      - name: Restore platform packages
+        run: |
+          for platform in darwin-arm64 darwin-x64 linux-x64 linux-arm64 win32-x64 win32-arm64; do
+            cp -r artifacts/$platform/* packages/$platform/
+            chmod +x packages/$platform/bin/* 2>/dev/null || true
+          done
+          ls -la packages/*/bin/
+
       - name: Prepare release assets
         run: |
           mkdir -p release
-          find artifacts -type f -exec cp {} release/ \;
+          # Create tarballs for each Unix platform
+          for platform in darwin-arm64 darwin-x64 linux-x64 linux-arm64; do
+            tar -czvf release/agent-rdp-$platform.tar.gz -C packages/$platform/bin agent-rdp
+          done
+          # Create zips for Windows
+          for platform in win32-x64 win32-arm64; do
+            (cd packages/$platform/bin && zip ../../../release/agent-rdp-$platform.zip agent-rdp.exe)
+          done
           ls -la release/
 
       - name: Upload binaries to GitHub Release
@@ -123,22 +140,20 @@ jobs:
         with:
           version: 9
 
-      - name: Copy binaries to bin/
-        run: |
-          cp release/agent-rdp-darwin-arm64 bin/
-          cp release/agent-rdp-darwin-x64 bin/
-          cp release/agent-rdp-linux-x64 bin/
-          cp release/agent-rdp-win32-x64.exe bin/
-          cp release/agent-rdp-linux-arm64 bin/
-          cp release/agent-rdp-win32-arm64.exe bin/
-          chmod +x bin/agent-rdp-*
-          ls -la bin/
-
       - name: Install dependencies
         run: pnpm install --ignore-scripts
 
       - name: Build TypeScript
-        run: pnpm run build:ts
+        run: pnpm --filter agent-rdp run build:ts
 
-      - name: Publish to npm
-        run: npm publish --access public --provenance
+      - name: Publish platform packages
+        run: |
+          for platform in darwin-arm64 darwin-x64 linux-x64 linux-arm64 win32-x64 win32-arm64; do
+            echo "Publishing @agent-rdp/$platform..."
+            (cd packages/$platform && npm publish --access public --provenance)
+          done
+
+      - name: Publish main package
+        run: |
+          cd packages/agent-rdp
+          npm publish --access public --provenance
