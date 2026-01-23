@@ -66,11 +66,12 @@ jobs:
         with:
           filters: |
             ts:
-              - '**/*.ts'
-              - '**/*.js'
+              - 'packages/agent-rdp/src/**/*.ts'
+              - 'packages/agent-rdp/package.json'
+              - 'packages/agent-rdp/tsconfig.json'
               - 'package.json'
               - 'pnpm-lock.yaml'
-              - 'tsconfig.json'
+              - 'pnpm-workspace.yaml'
               - '.github/workflows/ci.yml'
 
       - name: Setup Node.js
