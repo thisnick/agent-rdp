@@ -8,6 +8,7 @@ on:
 
 jobs:
   test:
+    if: github.event_name == 'push' || !github.event.pull_request.draft
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -15,10 +16,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for Rust changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            rust:
+              - '**/*.rs'
+              - '**/Cargo.toml'
+              - '**/Cargo.lock'
+              - '.github/workflows/ci.yml'
+
       - name: Install Rust
+        if: steps.filter.outputs.rust == 'true'
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache cargo
+        if: steps.filter.outputs.rust == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -30,40 +44,82 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build
+        if: steps.filter.outputs.rust == 'true'
         run: cargo build --all-targets
 
       - name: Test
+        if: steps.filter.outputs.rust == 'true'
         run: cargo test
+
+      - name: Skip message
+        if: steps.filter.outputs.rust != 'true'
+        run: echo "No Rust changes detected, skipping build and test"
 
   typecheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for TypeScript changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            ts:
+              - '**/*.ts'
+              - '**/*.js'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'tsconfig.json'
+              - '.github/workflows/ci.yml'
+
       - name: Setup Node.js
+        if: steps.filter.outputs.ts == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Install pnpm
+        if: steps.filter.outputs.ts == 'true'
         uses: pnpm/action-setup@v2
         with:
           version: 9
 
       - name: Install dependencies
+        if: steps.filter.outputs.ts == 'true'
         run: pnpm install --ignore-scripts
 
       - name: Lint
+        if: steps.filter.outputs.ts == 'true'
         run: pnpm run lint
 
       - name: TypeScript check
+        if: steps.filter.outputs.ts == 'true'
         run: pnpm run build:ts
+
+      - name: Skip message
+        if: steps.filter.outputs.ts != 'true'
+        run: echo "No TypeScript changes detected, skipping typecheck"
 
   lint-powershell:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for PowerShell changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            ps:
+              - '**/*.ps1'
+              - '.github/workflows/ci.yml'
+
       - name: Lint PowerShell scripts
+        if: steps.filter.outputs.ps == 'true'
         shell: pwsh
         run: ./scripts/lint-ps1.ps1
+
+      - name: Skip message
+        if: steps.filter.outputs.ps != 'true'
+        run: echo "No PowerShell changes detected, skipping lint"
