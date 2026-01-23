@@ -11,8 +11,5 @@
   "os": ["linux"],
   "cpu": ["arm64"],
   "files": ["bin", "models"],
-  "scripts": {
-    "postinstall": "chmod +x bin/agent-rdp 2>/dev/null || true"
-  },
   "preferUnplugged": true
 }
