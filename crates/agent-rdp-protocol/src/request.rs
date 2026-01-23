@@ -100,6 +100,11 @@ pub struct ConnectRequest {
     /// Streaming JPEG quality 0-100 (default: 80).
     #[serde(default = "default_stream_quality")]
     pub stream_quality: u8,
+
+    /// Serve the embedded HTML viewer on the streaming port (default: false).
+    /// When false, only WebSocket connections are accepted.
+    #[serde(default)]
+    pub serve_viewer: bool,
 }
 
 fn default_stream_fps() -> u32 {
@@ -125,6 +130,7 @@ impl Default for ConnectRequest {
             stream_port: 0,
             stream_fps: default_stream_fps(),
             stream_quality: default_stream_quality(),
+            serve_viewer: false,
         }
     }
 }

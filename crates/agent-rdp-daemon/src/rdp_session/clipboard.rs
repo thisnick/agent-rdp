@@ -74,6 +74,8 @@ pub struct ClipboardState {
     pub remote_formats: Vec<ClipboardFormat>,
     /// Pending text get request response channel.
     pub pending_get: Option<tokio::sync::oneshot::Sender<Result<Option<String>, String>>>,
+    /// Notify when remote clipboard changes (for WebSocket integration).
+    pub clipboard_changed_tx: Option<mpsc::UnboundedSender<()>>,
 }
 
 impl Default for ClipboardState {
@@ -83,6 +85,7 @@ impl Default for ClipboardState {
             remote_text: None,
             remote_formats: Vec::new(),
             pending_get: None,
+            clipboard_changed_tx: None,
         }
     }
 }
@@ -138,6 +141,11 @@ impl CliprdrBackend for AgentClipboardBackend {
         state.remote_formats = available_formats.to_vec();
         // Clear old remote data since new data is available.
         state.remote_text = None;
+
+        // Notify WebSocket clients that clipboard changed (if channel is set up).
+        if let Some(ref tx) = state.clipboard_changed_tx {
+            let _ = tx.send(());
+        }
     }
 
     fn on_format_data_request(&mut self, request: FormatDataRequest) {

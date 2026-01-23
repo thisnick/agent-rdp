@@ -2,6 +2,8 @@
 //!
 //! Provides a WebSocket interface matching the agent-browser protocol for
 //! debugging and interactive viewing of the remote desktop.
+//!
+//! Also serves the embedded viewer HTML on regular HTTP requests.
 
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -9,12 +11,16 @@ use std::sync::Arc;
 use futures_util::{SinkExt, StreamExt};
 use parking_lot::Mutex;
 use serde::Serialize;
+use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, error, info};
 
 use crate::rdp_session::RdpSession;
-use crate::ws_input::{keyboard_to_fastpath, mouse_to_fastpath, WsInputMessage};
+use crate::ws_input::{keyboard_to_fastpath, mouse_to_fastpath, ClipboardContent, WsInputMessage};
+
+/// Embedded viewer HTML.
+const VIEWER_HTML: &str = include_str!("../../../assets/viewer/viewer.html");
 
 /// Frame message sent to clients.
 #[derive(Debug, Serialize)]
@@ -47,6 +53,21 @@ struct StatusMessage {
     viewport_height: u16,
 }
 
+/// Clipboard changed notification (server → client).
+#[derive(Debug, Serialize)]
+struct ClipboardChangedMessage {
+    #[serde(rename = "type")]
+    msg_type: &'static str,
+}
+
+/// Clipboard data message (server → client).
+#[derive(Debug, Serialize)]
+struct ClipboardDataMessage {
+    #[serde(rename = "type")]
+    msg_type: &'static str,
+    content: ClipboardContent,
+}
+
 /// Client ID type.
 type ClientId = u64;
 
@@ -54,6 +75,7 @@ type ClientId = u64;
 pub struct WsServer {
     port: u16,
     jpeg_quality: u8,
+    serve_viewer: bool,
     /// Active clients (by ID).
     clients: Arc<Mutex<HashSet<ClientId>>>,
     /// Next client ID.
@@ -65,6 +87,8 @@ pub struct WsServerConfig {
     pub port: u16,
     pub fps: u32,
     pub jpeg_quality: u8,
+    /// Serve the embedded HTML viewer on HTTP requests.
+    pub serve_viewer: bool,
 }
 
 impl Default for WsServerConfig {
@@ -73,6 +97,7 @@ impl Default for WsServerConfig {
             port: 9224,
             fps: 10,
             jpeg_quality: 80,
+            serve_viewer: false,
         }
     }
 }
@@ -83,6 +108,7 @@ impl WsServer {
         Self {
             port: config.port,
             jpeg_quality: config.jpeg_quality,
+            serve_viewer: config.serve_viewer,
             clients: Arc::new(Mutex::new(HashSet::new())),
             next_client_id: Arc::new(Mutex::new(0)),
         }
@@ -107,12 +133,14 @@ impl WsServer {
         let clients = Arc::clone(&self.clients);
         let next_client_id = Arc::clone(&self.next_client_id);
         let jpeg_quality = self.jpeg_quality;
+        let serve_viewer = self.serve_viewer;
 
+        let port = self.port;
         tokio::spawn(async move {
             loop {
                 match listener.accept().await {
                     Ok((stream, addr)) => {
-                        debug!("WebSocket connection from {}", addr);
+                        debug!("Connection from {}", addr);
 
                         let client_id = {
                             let mut id = next_client_id.lock();
@@ -124,15 +152,18 @@ impl WsServer {
                         let rdp_session = Arc::clone(&rdp_session);
                         let broadcast_rx = broadcast_tx.subscribe();
                         let jpeg_quality = jpeg_quality;
+                        let serve_viewer = serve_viewer;
 
                         tokio::spawn(async move {
-                            if let Err(e) = handle_client(
+                            if let Err(e) = handle_connection(
                                 stream,
                                 client_id,
                                 clients,
                                 rdp_session,
                                 broadcast_rx,
                                 jpeg_quality,
+                                port,
+                                serve_viewer,
                             )
                             .await
                             {
@@ -141,7 +172,7 @@ impl WsServer {
                         });
                     }
                     Err(e) => {
-                        error!("Failed to accept WebSocket connection: {}", e);
+                        error!("Failed to accept connection: {}", e);
                     }
                 }
             }
@@ -205,19 +236,108 @@ impl WsServerHandle {
             let _ = self.broadcast_tx.send(json);
         }
     }
+
+    /// Notify clients that the remote clipboard has changed.
+    pub fn broadcast_clipboard_changed(&self) {
+        if !self.has_clients() {
+            return;
+        }
+
+        let msg = ClipboardChangedMessage {
+            msg_type: "clipboard_changed",
+        };
+
+        if let Ok(json) = serde_json::to_string(&msg) {
+            debug!("Broadcasting clipboard_changed to clients");
+            let _ = self.broadcast_tx.send(json);
+        }
+    }
+}
+
+/// Handle an incoming connection - either HTTP or WebSocket.
+async fn handle_connection(
+    stream: TcpStream,
+    client_id: ClientId,
+    clients: Arc<Mutex<HashSet<ClientId>>>,
+    rdp_session: Arc<tokio::sync::Mutex<Option<RdpSession>>>,
+    broadcast_rx: tokio::sync::broadcast::Receiver<String>,
+    jpeg_quality: u8,
+    ws_port: u16,
+    serve_viewer: bool,
+) -> anyhow::Result<()> {
+    // Peek at the request headers without consuming them
+    let mut peek_buf = [0u8; 2048];
+    let n = stream.peek(&mut peek_buf).await?;
+    let request_preview = String::from_utf8_lossy(&peek_buf[..n]);
+
+    // Check if this is a WebSocket upgrade request
+    let is_websocket = request_preview.to_lowercase().contains("upgrade: websocket");
+
+    if is_websocket {
+        // Handle as WebSocket
+        let ws_stream = tokio_tungstenite::accept_async(stream).await?;
+        handle_websocket_client(ws_stream, client_id, clients, rdp_session, broadcast_rx, jpeg_quality).await
+    } else if serve_viewer {
+        // Serve the viewer HTML (consume the request first)
+        serve_viewer_html(stream, ws_port).await
+    } else {
+        // Return 404 - viewer not enabled
+        serve_not_found(stream).await
+    }
+}
+
+/// Serve a 404 response.
+async fn serve_not_found(mut stream: TcpStream) -> anyhow::Result<()> {
+    use tokio::io::AsyncReadExt;
+
+    // Consume the HTTP request
+    let mut buf = [0u8; 4096];
+    let _ = stream.read(&mut buf).await;
+
+    let response = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 25\r\nConnection: close\r\n\r\nViewer is not enabled.\r\n";
+    stream.write_all(response.as_bytes()).await?;
+    stream.flush().await?;
+    Ok(())
+}
+
+/// Serve the embedded viewer HTML.
+async fn serve_viewer_html(mut stream: TcpStream, ws_port: u16) -> anyhow::Result<()> {
+    use tokio::io::AsyncReadExt;
+
+    // Consume the HTTP request (we already peeked at it)
+    let mut buf = [0u8; 4096];
+    let _ = stream.read(&mut buf).await;
+
+    // Inject the WebSocket URL into the HTML
+    let html = VIEWER_HTML.replace(
+        "value=\"ws://localhost:9224\"",
+        &format!("value=\"ws://localhost:{}\"", ws_port),
+    );
+
+    let response = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        html.len(),
+        html
+    );
+    stream.write_all(response.as_bytes()).await?;
+    stream.flush().await?;
+    Ok(())
 }
 
 /// Handle a single WebSocket client connection.
-async fn handle_client(
-    stream: TcpStream,
+async fn handle_websocket_client<S>(
+    ws_stream: S,
     client_id: ClientId,
     clients: Arc<Mutex<HashSet<ClientId>>>,
     rdp_session: Arc<tokio::sync::Mutex<Option<RdpSession>>>,
     mut broadcast_rx: tokio::sync::broadcast::Receiver<String>,
     jpeg_quality: u8,
-) -> anyhow::Result<()> {
-    // Upgrade to WebSocket
-    let ws_stream = tokio_tungstenite::accept_async(stream).await?;
+) -> anyhow::Result<()>
+where
+    S: futures_util::Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>>
+        + futures_util::Sink<Message, Error = tokio_tungstenite::tungstenite::Error>
+        + Unpin,
+{
     let (mut ws_sink, mut ws_stream) = ws_stream.split();
 
     // Register client
@@ -296,7 +416,7 @@ async fn handle_client(
                 match result {
                     Some(Ok(msg)) => {
                         if let Message::Text(text) = msg {
-                            handle_client_message(&text, &rdp_session).await;
+                            handle_client_message(&text, &rdp_session, &mut ws_sink).await;
                         } else if let Message::Close(_) = msg {
                             break;
                         }
@@ -321,10 +441,14 @@ async fn handle_client(
 }
 
 /// Handle an incoming message from a WebSocket client.
-async fn handle_client_message(
+async fn handle_client_message<S>(
     text: &str,
     rdp_session: &Arc<tokio::sync::Mutex<Option<RdpSession>>>,
-) {
+    ws_sink: &mut S,
+) where
+    S: futures_util::Sink<Message> + Unpin,
+    S::Error: std::fmt::Debug,
+{
     // Parse the input message
     let input: WsInputMessage = match serde_json::from_str(text) {
         Ok(msg) => msg,
@@ -334,21 +458,62 @@ async fn handle_client_message(
         }
     };
 
-    // Convert to FastPath events
-    let events = match input {
-        WsInputMessage::Mouse(payload) => mouse_to_fastpath(&payload),
-        WsInputMessage::Keyboard(payload) => keyboard_to_fastpath(&payload),
-    };
-
-    if events.is_empty() {
-        return;
-    }
-
-    // Send to RDP session
-    let session = rdp_session.lock().await;
-    if let Some(ref rdp) = *session {
-        if let Err(e) = rdp.send_input(events).await {
-            error!("Failed to send input to RDP session: {}", e);
+    match input {
+        WsInputMessage::Mouse(payload) => {
+            let events = mouse_to_fastpath(&payload);
+            if !events.is_empty() {
+                let session = rdp_session.lock().await;
+                if let Some(ref rdp) = *session {
+                    if let Err(e) = rdp.send_input(events).await {
+                        error!("Failed to send input to RDP session: {}", e);
+                    }
+                }
+            }
+        }
+        WsInputMessage::Keyboard(payload) => {
+            let events = keyboard_to_fastpath(&payload);
+            if !events.is_empty() {
+                let session = rdp_session.lock().await;
+                if let Some(ref rdp) = *session {
+                    if let Err(e) = rdp.send_input(events).await {
+                        error!("Failed to send input to RDP session: {}", e);
+                    }
+                }
+            }
+        }
+        WsInputMessage::ClipboardGet(_payload) => {
+            // Client is requesting remote clipboard content
+            debug!("Received clipboard_get request from client");
+            let session = rdp_session.lock().await;
+            if let Some(ref rdp) = *session {
+                match rdp.clipboard_get().await {
+                    Ok(text) => {
+                        let msg = ClipboardDataMessage {
+                            msg_type: "clipboard_data",
+                            content: ClipboardContent {
+                                content_type: "text".to_string(),
+                                text,
+                            },
+                        };
+                        if let Ok(json) = serde_json::to_string(&msg) {
+                            let _ = ws_sink.send(Message::Text(json.into())).await;
+                        }
+                    }
+                    Err(e) => {
+                        debug!("Failed to get clipboard: {}", e);
+                    }
+                }
+            }
+        }
+        WsInputMessage::ClipboardSet(payload) => {
+            // Client is setting clipboard (before paste)
+            debug!("Received clipboard_set from client: {} chars", payload.text.len());
+            let session = rdp_session.lock().await;
+            if let Some(ref rdp) = *session {
+                if let Err(e) = rdp.clipboard_set(payload.text).await {
+                    debug!("Failed to set clipboard: {}", e);
+                }
+            }
         }
     }
 }

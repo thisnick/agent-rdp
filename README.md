@@ -390,7 +390,7 @@ await rdp.disconnect();
 
 ### WebSocket Streaming
 
-Enable WebSocket streaming for real-time screen capture:
+Enable WebSocket streaming for real-time screen capture and bidirectional clipboard support:
 
 ```typescript
 const rdp = new RdpSession({
@@ -403,6 +403,8 @@ await rdp.connect({...});
 // Connect your WebSocket client to receive JPEG frames
 const streamUrl = rdp.getStreamUrl(); // "ws://localhost:9224"
 ```
+
+For the complete WebSocket protocol specification (message types, clipboard flow, input handling), see [docs/WEBSOCKET.md](docs/WEBSOCKET.md).
 
 ## Architecture
 
