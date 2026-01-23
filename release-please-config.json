@@ -3,10 +3,16 @@
   "group-pull-request-title-pattern": "chore(main): release v${version}",
   "packages": {
     ".": {
-      "release-type": "rust",
+      "release-type": "simple",
       "component": "agent-rdp-rust",
       "skip-github-release": true,
-      "changelog-path": "CHANGELOG-rust.md"
+      "changelog-path": "CHANGELOG-rust.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "Cargo.toml"
+        }
+      ]
     },
     "packages/agent-rdp": {
       "release-type": "node",
