@@ -40,10 +40,13 @@ pub enum AutomateRequest {
         selector: String,
     },
 
-    /// Invoke an element (InvokePattern) - for buttons, links, menu items.
-    Invoke {
+    /// Click an element - for buttons, links, menu items.
+    Click {
         /// Element selector.
         selector: String,
+        /// Use double-click instead of single click.
+        #[serde(default)]
+        double_click: bool,
     },
 
     /// Select an element (SelectionItemPattern) - for list items, radio buttons.
@@ -340,6 +343,21 @@ pub struct RunResult {
     pub pid: Option<u32>,
 }
 
+/// Click action result.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClickResult {
+    /// Whether the click was performed.
+    pub clicked: bool,
+    /// Method used (click or double_click).
+    pub method: String,
+    /// X coordinate of click.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub x: Option<i32>,
+    /// Y coordinate of click.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub y: Option<i32>,
+}
+
 /// Handshake data from PowerShell agent.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutomationHandshake {
@@ -421,13 +439,14 @@ mod tests {
     }
 
     #[test]
-    fn test_invoke_request_serialization() {
-        let req = AutomateRequest::Invoke {
+    fn test_click_request_serialization() {
+        let req = AutomateRequest::Click {
             selector: "@5".to_string(),
+            double_click: false,
         };
 
         let json = serde_json::to_string(&req).unwrap();
-        assert!(json.contains("\"op\":\"invoke\""));
+        assert!(json.contains("\"op\":\"click\""));
         assert!(json.contains("\"selector\":\"@5\""));
     }
 

@@ -10,6 +10,7 @@ import type {
   AutomationWindowInfo,
   AutomationStatus,
   AutomationRunResult,
+  AutomationClickResult,
 } from './types.js';
 
 export interface SnapshotOptions {
@@ -149,14 +150,20 @@ export class AutomationController {
   }
 
   /**
-   * Invoke an element (InvokePattern) - for buttons, links, menu items.
+   * Click an element - for buttons, links, menu items.
+   *
+   * @param selector - Element selector
+   * @param options - Optional settings (e.g., doubleClick for file list items)
+   * @returns Result with click coordinates and method used
    */
-  async invoke(selector: string): Promise<void> {
-    await this.rdp._send({
+  async click(selector: string, options: { doubleClick?: boolean } = {}): Promise<AutomationClickResult> {
+    const response = await this.rdp._send({
       type: 'automate',
-      action: 'invoke',
+      action: 'click',
       selector,
+      double_click: options.doubleClick ?? false,
     });
+    return response.data as unknown as AutomationClickResult;
   }
 
   /**

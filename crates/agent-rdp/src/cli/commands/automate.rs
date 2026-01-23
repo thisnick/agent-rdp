@@ -42,7 +42,7 @@ pub async fn run(
 
         AutomateAction::Focus { selector } => AutomateRequest::Focus { selector },
 
-        AutomateAction::Invoke { selector } => AutomateRequest::Invoke { selector },
+        AutomateAction::Click { selector, double_click } => AutomateRequest::Click { selector, double_click },
 
         AutomateAction::Select { selector, item } => AutomateRequest::Select { selector, item },
 

@@ -59,7 +59,7 @@ function Write-Handshake {
         agent_pid = $PID
         started_at = (Get-Date -Format "o")
         capabilities = @(
-            "snapshot", "invoke", "select", "toggle", "expand", "collapse",
+            "snapshot", "click", "select", "toggle", "expand", "collapse",
             "context_menu", "focus", "get", "fill", "clear",
             "scroll", "window", "run", "wait_for", "status"
         )
@@ -153,7 +153,7 @@ function Start-Agent {
                     Write-Log "Executing command: $($request.command)"
                     $response.data = switch ($request.command) {
                         "snapshot"     { Invoke-Snapshot -Params $request.params }
-                        "invoke"       { Invoke-Invoke -Params $request.params }
+                        "click"        { Invoke-Click -Params $request.params }
                         "select"       { Invoke-Select -Params $request.params }
                         "toggle"       { Invoke-Toggle -Params $request.params }
                         "expand"       { Invoke-Expand -Params $request.params }

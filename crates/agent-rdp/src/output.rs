@@ -171,6 +171,13 @@ impl Output {
                     }
                 }
             }
+            ResponseData::ClickResult(result) => {
+                if result.method == "double_click" {
+                    println!("Double-clicked at ({}, {})", result.x.unwrap_or(0), result.y.unwrap_or(0));
+                } else {
+                    println!("Clicked at ({}, {})", result.x.unwrap_or(0), result.y.unwrap_or(0));
+                }
+            }
         }
     }
 

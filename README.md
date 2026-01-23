@@ -10,7 +10,7 @@ A CLI tool for AI agents to control Windows Remote Desktop sessions, built on [I
 - **Keyboard input** - Type text, press key combinations (Ctrl+C, Alt+Tab, etc.)
 - **Clipboard sync** - Copy/paste text between local machine and remote Windows
 - **Drive mapping** - Map local directories as network drives on the remote machine
-- **UI Automation** - Interact with Windows applications via accessibility API using native patterns (invoke, select, toggle, expand)
+- **UI Automation** - Interact with Windows applications via accessibility API (click, select, toggle, expand)
 - **OCR text location** - Find text on screen using OCR when UI Automation isn't available
 - **JSON output** - Structured output for AI agent consumption
 - **Session management** - Multiple named sessions with automatic daemon lifecycle
@@ -190,8 +190,9 @@ agent-rdp automate snapshot -s "~*Notepad*" # Scope to a window/element
 agent-rdp automate snapshot -i -c -d 5      # Combine options
 
 # Pattern-based element operations (refs use @eN format)
-agent-rdp automate invoke "#SaveButton"    # Invoke button (InvokePattern)
-agent-rdp automate invoke "@e5"            # By ref number from snapshot
+agent-rdp automate click "#SaveButton"     # Click button
+agent-rdp automate click "@e5"             # Click by ref number from snapshot
+agent-rdp automate click "@e5" -d          # Double-click (for file list items)
 agent-rdp automate select "@e10"           # Select item (SelectionItemPattern)
 agent-rdp automate toggle "@e7"            # Toggle checkbox (TogglePattern)
 agent-rdp automate expand "@e3"            # Expand menu (ExpandCollapsePattern)
@@ -364,7 +365,8 @@ const allText = await rdp.locate({ all: true });
 
 // Automation (requires --enable-win-automation at connect)
 const snapshot = await rdp.automation.snapshot({ interactive: true });
-await rdp.automation.invoke('@e5');          // Invoke button by ref
+await rdp.automation.click('@e5');           // Click button by ref
+await rdp.automation.click('@e5', { doubleClick: true }); // Double-click
 await rdp.automation.select('@e10');         // Select item
 await rdp.automation.toggle('@e7');          // Toggle checkbox
 await rdp.automation.expand('@e3');          // Expand menu

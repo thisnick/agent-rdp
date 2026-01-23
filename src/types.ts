@@ -437,6 +437,17 @@ export interface AutomationRunResult {
   pid?: number;
 }
 
+export interface AutomationClickResult {
+  /** Whether the click was performed. */
+  clicked: boolean;
+  /** Method used (click or double_click). */
+  method: string;
+  /** X coordinate of click. */
+  x?: number;
+  /** Y coordinate of click. */
+  y?: number;
+}
+
 // --- Error Class ---
 
 export class RdpError extends Error {
