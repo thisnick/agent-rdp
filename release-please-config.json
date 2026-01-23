@@ -1,7 +1,13 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
-  "group-pull-request-title-pattern": "chore(main): release ${version}",
+  "group-pull-request-title-pattern": "chore(main): release v${version}",
   "packages": {
+    ".": {
+      "release-type": "rust",
+      "component": "agent-rdp-rust",
+      "skip-github-release": true,
+      "changelog-path": "CHANGELOG-rust.md"
+    },
     "packages/agent-rdp": {
       "release-type": "node",
       "component": "agent-rdp",
@@ -56,6 +62,7 @@
       "type": "linked-versions",
       "groupName": "agent-rdp packages",
       "components": [
+        "agent-rdp-rust",
         "agent-rdp",
         "darwin-arm64",
         "darwin-x64",
