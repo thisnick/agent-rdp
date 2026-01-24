@@ -77,6 +77,7 @@ pub struct ConnectRequest {
 
     /// Optional domain.
     #[serde(default)]
+    #[ts(optional)]
     pub domain: Option<String>,
 
     /// Desktop width in pixels.
@@ -234,9 +235,11 @@ pub struct ScrollRequest {
 
     /// Optional position to scroll at.
     #[serde(default)]
+    #[ts(optional)]
     pub x: Option<u16>,
 
     #[serde(default)]
+    #[ts(optional)]
     pub y: Option<u16>,
 }
 

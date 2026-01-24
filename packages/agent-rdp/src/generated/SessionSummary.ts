@@ -16,4 +16,4 @@ state: ConnectionState,
 /**
  * Connected host (if any).
  */
-host: string | null, };
+host?: string, };

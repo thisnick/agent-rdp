@@ -12,15 +12,15 @@ title: string,
 /**
  * Process name.
  */
-process_name: string | null, 
+process_name?: string, 
 /**
  * Process ID.
  */
-process_id: number | null, 
+process_id?: number, 
 /**
  * Window bounds.
  */
-bounds: ElementBounds | null, 
+bounds?: ElementBounds, 
 /**
  * Whether the window is minimized.
  */

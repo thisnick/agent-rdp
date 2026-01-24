@@ -16,15 +16,15 @@ state: ConnectionState,
 /**
  * Connected server host (if connected).
  */
-host: string | null, 
+host?: string, 
 /**
  * Desktop width (if connected).
  */
-width: number | null, 
+width?: number, 
 /**
  * Desktop height (if connected).
  */
-height: number | null, 
+height?: number, 
 /**
  * Daemon process ID.
  */
@@ -32,4 +32,4 @@ pid: number,
 /**
  * Time since daemon started (seconds).
  */
-uptime_secs: bigint, };
+uptime_secs: number, };

@@ -24,7 +24,7 @@ password: string,
 /**
  * Optional domain.
  */
-domain: string | null, 
+domain?: string, 
 /**
  * Desktop width in pixels.
  */

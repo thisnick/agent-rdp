@@ -11,7 +11,7 @@ agent_running: boolean,
 /**
  * Agent process ID.
  */
-agent_pid: number | null, 
+agent_pid?: number, 
 /**
  * Supported capabilities.
  */
@@ -19,4 +19,4 @@ capabilities: Array<string>,
 /**
  * Agent version.
  */
-version: string | null, };
+version?: string, };

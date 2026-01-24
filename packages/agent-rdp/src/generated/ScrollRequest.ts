@@ -16,4 +16,4 @@ amount: number,
 /**
  * Optional position to scroll at.
  */
-x: number | null, y: number | null, };
+x?: number, y?: number, };

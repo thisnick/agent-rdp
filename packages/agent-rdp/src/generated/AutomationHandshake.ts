@@ -15,7 +15,7 @@ agent_pid: number,
 /**
  * Start timestamp (optional for backwards compatibility).
  */
-started_at: string | null, 
+started_at?: string, 
 /**
  * Supported capabilities.
  */

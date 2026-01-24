@@ -22,7 +22,7 @@ max_depth: number,
 /**
  * Scope to a specific element (window, panel, etc.) via selector.
  */
-selector: string | null, 
+selector?: string, 
 /**
  * Start from the currently focused element.
  */
@@ -34,7 +34,7 @@ selector: string,
 /**
  * Property to retrieve (name, value, states, bounds, or all).
  */
-property: string | null, } | { "op": "focus", 
+property?: string, } | { "op": "focus", 
 /**
  * Element selector.
  */
@@ -54,7 +54,7 @@ selector: string,
 /**
  * Item name to select within container (optional).
  */
-item: string | null, } | { "op": "toggle", 
+item?: string, } | { "op": "toggle", 
 /**
  * Element selector.
  */
@@ -62,7 +62,7 @@ selector: string,
 /**
  * Target state: true=on, false=off, None=toggle.
  */
-state: boolean | null, } | { "op": "expand", 
+state?: boolean, } | { "op": "expand", 
 /**
  * Element selector.
  */
@@ -94,15 +94,15 @@ selector: string,
 /**
  * Scroll direction.
  */
-direction: AutomationScrollDirection | null, 
+direction?: AutomationScrollDirection, 
 /**
  * Scroll amount.
  */
-amount: number | null, 
+amount?: number, 
 /**
  * Child element to scroll into view.
  */
-to_child: string | null, } | { "op": "window", 
+to_child?: string, } | { "op": "window", 
 /**
  * Window action to perform.
  */
@@ -110,7 +110,7 @@ action: WindowAction,
 /**
  * Window selector (optional, uses foreground window if not specified).
  */
-selector: string | null, } | { "op": "run", 
+selector?: string, } | { "op": "run", 
 /**
  * Command to run.
  */
@@ -130,7 +130,7 @@ hidden: boolean,
 /**
  * Timeout in milliseconds when waiting.
  */
-timeout_ms: bigint, } | { "op": "wait_for", 
+timeout_ms: number, } | { "op": "wait_for", 
 /**
  * Element selector.
  */
@@ -138,7 +138,7 @@ selector: string,
 /**
  * Timeout in milliseconds.
  */
-timeout_ms: bigint, 
+timeout_ms: number, 
 /**
  * State to wait for.
  */

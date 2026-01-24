@@ -20,8 +20,8 @@ success: boolean,
 /**
  * Response data on success.
  */
-data: unknown, 
+data?: unknown, 
 /**
  * Error details on failure.
  */
-error: FileIpcError | null, };
+error?: FileIpcError, };

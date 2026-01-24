@@ -16,10 +16,12 @@ pub struct Response {
 
     /// Response data on success.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub data: Option<ResponseData>,
 
     /// Error details on failure.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub error: Option<ErrorInfo>,
 }
 
@@ -146,20 +148,24 @@ pub struct SessionInfo {
 
     /// Connected server host (if connected).
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub host: Option<String>,
 
     /// Desktop width (if connected).
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub width: Option<u16>,
 
     /// Desktop height (if connected).
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub height: Option<u16>,
 
     /// Daemon process ID.
     pub pid: u32,
 
     /// Time since daemon started (seconds).
+    #[ts(type = "number")]
     pub uptime_secs: u64,
 }
 
@@ -188,6 +194,7 @@ pub struct SessionSummary {
     pub state: ConnectionState,
     /// Connected host (if any).
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub host: Option<String>,
 }
 

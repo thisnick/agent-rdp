@@ -112,13 +112,14 @@ export class AutomationController {
    * Refs are always included (use @eN format to reference elements).
    */
   async snapshot(options: SnapshotOptions = {}): Promise<AutomationSnapshot> {
-    const request: AutomateRequest = {
-      type: 'automate',
-      action: 'snapshot',
+    const request = {
+      type: 'automate' as const,
+      op: 'snapshot' as const,
       interactive_only: options.interactive ?? false,
       compact: options.compact ?? false,
       max_depth: options.depth ?? 10,
       selector: options.selector,
+      focused: false,
     };
     const response = await this.rdp._send(request);
     return response.data as unknown as AutomationSnapshot;
@@ -128,9 +129,9 @@ export class AutomationController {
    * Get element properties.
    */
   async get(selector: string, options: GetOptions = {}): Promise<AutomationElementValue> {
-    const request: AutomateRequest = {
-      type: 'automate',
-      action: 'get',
+    const request = {
+      type: 'automate' as const,
+      op: 'get' as const,
       selector,
       property: options.property,
     };
@@ -143,8 +144,8 @@ export class AutomationController {
    */
   async focus(selector: string): Promise<void> {
     await this.rdp._send({
-      type: 'automate',
-      action: 'focus',
+      type: 'automate' as const,
+      op: 'focus' as const,
       selector,
     });
   }
@@ -158,8 +159,8 @@ export class AutomationController {
    */
   async click(selector: string, options: { doubleClick?: boolean } = {}): Promise<AutomationClickResult> {
     const response = await this.rdp._send({
-      type: 'automate',
-      action: 'click',
+      type: 'automate' as const,
+      op: 'click' as const,
       selector,
       double_click: options.doubleClick ?? false,
     });
@@ -172,8 +173,8 @@ export class AutomationController {
    */
   async select(selector: string, options: SelectOptions = {}): Promise<void> {
     await this.rdp._send({
-      type: 'automate',
-      action: 'select',
+      type: 'automate' as const,
+      op: 'select' as const,
       selector,
       item: options.item,
     });
@@ -184,8 +185,8 @@ export class AutomationController {
    */
   async toggle(selector: string, options: ToggleOptions = {}): Promise<void> {
     await this.rdp._send({
-      type: 'automate',
-      action: 'toggle',
+      type: 'automate' as const,
+      op: 'toggle' as const,
       selector,
       state: options.state,
     });
@@ -196,8 +197,8 @@ export class AutomationController {
    */
   async expand(selector: string): Promise<void> {
     await this.rdp._send({
-      type: 'automate',
-      action: 'expand',
+      type: 'automate' as const,
+      op: 'expand' as const,
       selector,
     });
   }
@@ -207,8 +208,8 @@ export class AutomationController {
    */
   async collapse(selector: string): Promise<void> {
     await this.rdp._send({
-      type: 'automate',
-      action: 'collapse',
+      type: 'automate' as const,
+      op: 'collapse' as const,
       selector,
     });
   }
@@ -218,8 +219,8 @@ export class AutomationController {
    */
   async contextMenu(selector: string): Promise<void> {
     await this.rdp._send({
-      type: 'automate',
-      action: 'context_menu',
+      type: 'automate' as const,
+      op: 'context_menu' as const,
       selector,
     });
   }
@@ -229,8 +230,8 @@ export class AutomationController {
    */
   async fill(selector: string, text: string): Promise<void> {
     await this.rdp._send({
-      type: 'automate',
-      action: 'fill',
+      type: 'automate' as const,
+      op: 'fill' as const,
       selector,
       text,
     });
@@ -241,8 +242,8 @@ export class AutomationController {
    */
   async clear(selector: string): Promise<void> {
     await this.rdp._send({
-      type: 'automate',
-      action: 'clear',
+      type: 'automate' as const,
+      op: 'clear' as const,
       selector,
     });
   }
@@ -252,8 +253,8 @@ export class AutomationController {
    */
   async scroll(selector: string, options: ScrollOptions = {}): Promise<void> {
     await this.rdp._send({
-      type: 'automate',
-      action: 'scroll',
+      type: 'automate' as const,
+      op: 'scroll' as const,
       selector,
       direction: options.direction,
       amount: options.amount,
@@ -266,9 +267,9 @@ export class AutomationController {
    */
   async listWindows(): Promise<AutomationWindowInfo[]> {
     const response = await this.rdp._send({
-      type: 'automate',
-      action: 'window',
-      window_action: 'list',
+      type: 'automate' as const,
+      op: 'window' as const,
+      action: 'list' as const,
     });
     const data = response.data as unknown as { type: 'window_list'; windows: AutomationWindowInfo[] };
     return data.windows;
@@ -279,9 +280,9 @@ export class AutomationController {
    */
   async focusWindow(selector?: string): Promise<void> {
     await this.rdp._send({
-      type: 'automate',
-      action: 'window',
-      window_action: 'focus',
+      type: 'automate' as const,
+      op: 'window' as const,
+      action: 'focus' as const,
       selector,
     });
   }
@@ -291,9 +292,9 @@ export class AutomationController {
    */
   async maximizeWindow(selector?: string): Promise<void> {
     await this.rdp._send({
-      type: 'automate',
-      action: 'window',
-      window_action: 'maximize',
+      type: 'automate' as const,
+      op: 'window' as const,
+      action: 'maximize' as const,
       selector,
     });
   }
@@ -303,9 +304,9 @@ export class AutomationController {
    */
   async minimizeWindow(selector?: string): Promise<void> {
     await this.rdp._send({
-      type: 'automate',
-      action: 'window',
-      window_action: 'minimize',
+      type: 'automate' as const,
+      op: 'window' as const,
+      action: 'minimize' as const,
       selector,
     });
   }
@@ -315,9 +316,9 @@ export class AutomationController {
    */
   async restoreWindow(selector?: string): Promise<void> {
     await this.rdp._send({
-      type: 'automate',
-      action: 'window',
-      window_action: 'restore',
+      type: 'automate' as const,
+      op: 'window' as const,
+      action: 'restore' as const,
       selector,
     });
   }
@@ -327,9 +328,9 @@ export class AutomationController {
    */
   async closeWindow(selector?: string): Promise<void> {
     await this.rdp._send({
-      type: 'automate',
-      action: 'window',
-      window_action: 'close',
+      type: 'automate' as const,
+      op: 'window' as const,
+      action: 'close' as const,
       selector,
     });
   }
@@ -339,8 +340,8 @@ export class AutomationController {
    */
   async run(command: string, options: RunOptions = {}): Promise<AutomationRunResult> {
     const response = await this.rdp._send({
-      type: 'automate',
-      action: 'run',
+      type: 'automate' as const,
+      op: 'run' as const,
       command,
       args: options.args ?? [],
       wait: options.wait ?? false,
@@ -355,8 +356,8 @@ export class AutomationController {
    */
   async waitFor(selector: string, options: WaitForOptions = {}): Promise<void> {
     await this.rdp._send({
-      type: 'automate',
-      action: 'wait_for',
+      type: 'automate' as const,
+      op: 'wait_for' as const,
       selector,
       timeout_ms: options.timeout ?? 30000,
       state: options.state ?? 'visible',
@@ -368,8 +369,8 @@ export class AutomationController {
    */
   async status(): Promise<AutomationStatus> {
     const response = await this.rdp._send({
-      type: 'automate',
-      action: 'status',
+      type: 'automate' as const,
+      op: 'status' as const,
     });
     return response.data as unknown as AutomationStatus;
   }

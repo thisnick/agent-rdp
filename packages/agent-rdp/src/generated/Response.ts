@@ -13,8 +13,8 @@ success: boolean,
 /**
  * Response data on success.
  */
-data: ResponseData | null, 
+data?: ResponseData, 
 /**
  * Error details on failure.
  */
-error: ErrorInfo | null, };
+error?: ErrorInfo, };

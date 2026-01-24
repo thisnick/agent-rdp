@@ -21,6 +21,7 @@ pub enum AutomateRequest {
         max_depth: u32,
         /// Scope to a specific element (window, panel, etc.) via selector.
         #[serde(skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
         selector: Option<String>,
         /// Start from the currently focused element.
         #[serde(default)]
@@ -33,6 +34,7 @@ pub enum AutomateRequest {
         selector: String,
         /// Property to retrieve (name, value, states, bounds, or all).
         #[serde(skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
         property: Option<String>,
     },
 
@@ -58,6 +60,7 @@ pub enum AutomateRequest {
         selector: String,
         /// Item name to select within container (optional).
         #[serde(skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
         item: Option<String>,
     },
 
@@ -67,6 +70,7 @@ pub enum AutomateRequest {
         selector: String,
         /// Target state: true=on, false=off, None=toggle.
         #[serde(skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
         state: Option<bool>,
     },
 
@@ -108,12 +112,15 @@ pub enum AutomateRequest {
         selector: String,
         /// Scroll direction.
         #[serde(skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
         direction: Option<AutomationScrollDirection>,
         /// Scroll amount.
         #[serde(skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
         amount: Option<i32>,
         /// Child element to scroll into view.
         #[serde(skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
         to_child: Option<String>,
     },
 
@@ -123,6 +130,7 @@ pub enum AutomateRequest {
         action: WindowAction,
         /// Window selector (optional, uses foreground window if not specified).
         #[serde(skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
         selector: Option<String>,
     },
 
@@ -141,6 +149,7 @@ pub enum AutomateRequest {
         hidden: bool,
         /// Timeout in milliseconds when waiting.
         #[serde(default = "default_run_timeout")]
+        #[ts(type = "number")]
         timeout_ms: u64,
     },
 
@@ -150,6 +159,7 @@ pub enum AutomateRequest {
         selector: String,
         /// Timeout in milliseconds.
         #[serde(default = "default_wait_timeout")]
+        #[ts(type = "number")]
         timeout_ms: u64,
         /// State to wait for.
         #[serde(default)]
@@ -240,26 +250,32 @@ pub struct AccessibilitySnapshot {
 pub struct AccessibilityElement {
     /// Reference number (for @ref selectors).
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub r#ref: Option<u32>,
     /// Element role (control type).
     pub role: String,
     /// Element name.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub name: Option<String>,
     /// Automation ID.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub automation_id: Option<String>,
     /// Win32 class name.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub class_name: Option<String>,
     /// Bounding rectangle.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub bounds: Option<ElementBounds>,
     /// Element states.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub states: Vec<String>,
     /// Current value (for editable elements).
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub value: Option<String>,
     /// Supported UI Automation patterns.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -285,15 +301,18 @@ pub struct ElementBounds {
 pub struct ElementValue {
     /// Element name.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub name: Option<String>,
     /// Element value.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub value: Option<String>,
     /// Element states.
     #[serde(default)]
     pub states: Vec<String>,
     /// Element bounds.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub bounds: Option<ElementBounds>,
 }
 
@@ -305,12 +324,15 @@ pub struct WindowInfo {
     pub title: String,
     /// Process name.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub process_name: Option<String>,
     /// Process ID.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub process_id: Option<u32>,
     /// Window bounds.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub bounds: Option<ElementBounds>,
     /// Whether the window is minimized.
     #[serde(default)]
@@ -328,12 +350,14 @@ pub struct AutomationStatus {
     pub agent_running: bool,
     /// Agent process ID.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub agent_pid: Option<u32>,
     /// Supported capabilities.
     #[serde(default)]
     pub capabilities: Vec<String>,
     /// Agent version.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub version: Option<String>,
 }
 
@@ -343,15 +367,19 @@ pub struct AutomationStatus {
 pub struct RunResult {
     /// Exit code (if waited).
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub exit_code: Option<i32>,
     /// Standard output (if waited).
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub stdout: Option<String>,
     /// Standard error (if waited).
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub stderr: Option<String>,
     /// Process ID (if not waited).
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub pid: Option<u32>,
 }
 
@@ -365,9 +393,11 @@ pub struct ClickResult {
     pub method: String,
     /// X coordinate of click.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub x: Option<i32>,
     /// Y coordinate of click.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub y: Option<i32>,
 }
 
@@ -380,7 +410,8 @@ pub struct AutomationHandshake {
     /// Agent process ID.
     pub agent_pid: u32,
     /// Start timestamp (optional for backwards compatibility).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub started_at: Option<String>,
     /// Supported capabilities.
     pub capabilities: Vec<String>,
@@ -413,10 +444,11 @@ pub struct FileIpcResponse {
     pub success: bool,
     /// Response data on success.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[ts(type = "unknown")]
+    #[ts(optional, type = "unknown")]
     pub data: Option<serde_json::Value>,
     /// Error details on failure.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub error: Option<FileIpcError>,
 }
 

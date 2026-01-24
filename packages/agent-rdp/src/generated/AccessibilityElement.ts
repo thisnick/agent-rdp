@@ -8,7 +8,7 @@ export type AccessibilityElement = {
 /**
  * Reference number (for @ref selectors).
  */
-ref: number | null, 
+ref?: number, 
 /**
  * Element role (control type).
  */
@@ -16,19 +16,19 @@ role: string,
 /**
  * Element name.
  */
-name: string | null, 
+name?: string, 
 /**
  * Automation ID.
  */
-automation_id: string | null, 
+automation_id?: string, 
 /**
  * Win32 class name.
  */
-class_name: string | null, 
+class_name?: string, 
 /**
  * Bounding rectangle.
  */
-bounds: ElementBounds | null, 
+bounds?: ElementBounds, 
 /**
  * Element states.
  */
@@ -36,7 +36,7 @@ states: Array<string>,
 /**
  * Current value (for editable elements).
  */
-value: string | null, 
+value?: string, 
 /**
  * Supported UI Automation patterns.
  */

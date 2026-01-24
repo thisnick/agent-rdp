@@ -8,11 +8,11 @@ export type ElementValue = {
 /**
  * Element name.
  */
-name: string | null, 
+name?: string, 
 /**
  * Element value.
  */
-value: string | null, 
+value?: string, 
 /**
  * Element states.
  */
@@ -20,4 +20,4 @@ states: Array<string>,
 /**
  * Element bounds.
  */
-bounds: ElementBounds | null, };
+bounds?: ElementBounds, };

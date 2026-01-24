@@ -161,7 +161,7 @@ jobs:
         if: steps.filter.outputs.schema == 'true'
         run: cargo test -p agent-rdp-protocol --lib
 
-      - name: Verify generated TypeScript types exist
+      - name: Verify generated TypeScript types are fresh
         if: steps.filter.outputs.schema == 'true'
         run: |
           if [ ! -d "packages/agent-rdp/src/generated" ]; then
@@ -172,6 +172,27 @@ jobs:
           echo "Generated $count TypeScript files"
           if [ "$count" -lt 10 ]; then
             echo "Expected at least 10 generated TypeScript files"
+            exit 1
+          fi
+          # Check that generated files match what's checked in
+          if git diff --quiet packages/agent-rdp/src/generated/; then
+            echo "Generated TypeScript files are up-to-date"
+          else
+            echo "ERROR: Generated TypeScript files are out of date!"
+            echo "Please run 'cargo test -p agent-rdp-protocol generate' and commit the changes"
+            git diff packages/agent-rdp/src/generated/
+            exit 1
+          fi
+
+      - name: Verify generated fixtures are fresh
+        if: steps.filter.outputs.schema == 'true'
+        run: |
+          if git diff --quiet test/fixtures/; then
+            echo "Generated fixtures are up-to-date"
+          else
+            echo "ERROR: Generated fixtures are out of date!"
+            echo "Please run 'cargo test -p agent-rdp-protocol generate' and commit the changes"
+            git diff test/fixtures/
             exit 1
           fi
 

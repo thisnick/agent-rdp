@@ -15,8 +15,8 @@ method: string,
 /**
  * X coordinate of click.
  */
-x: number | null, 
+x?: number, 
 /**
  * Y coordinate of click.
  */
-y: number | null, };
+y?: number, };

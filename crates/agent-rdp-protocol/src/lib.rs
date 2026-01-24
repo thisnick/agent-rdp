@@ -32,6 +32,10 @@ mod codegen {
         Request::export_all().unwrap();
         Response::export_all().unwrap();
         AutomateRequest::export_all().unwrap();
+        // Export IPC types that aren't directly referenced by the main types
+        AutomationHandshake::export_all().unwrap();
+        FileIpcRequest::export_all().unwrap();
+        FileIpcResponse::export_all().unwrap();
 
         // Fix imports in generated files: add .js extension for ESM compatibility
         let entries: Vec<_> = fs::read_dir(&out_dir)

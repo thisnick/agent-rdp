@@ -239,7 +239,11 @@ export class RdpSession {
       width: options.width ?? 1280,
       height: options.height ?? 800,
       drives: options.drives ?? [],
-      enable_win_automation: options.enableWinAutomation,
+      enable_win_automation: options.enableWinAutomation ?? false,
+      stream_port: 0,
+      stream_fps: 10,
+      stream_quality: 80,
+      serve_viewer: false,
     };
 
     const response = await this._send(request);
@@ -282,7 +286,7 @@ export class RdpSession {
    */
   async getInfo(): Promise<SessionInfo> {
     const response = await this._send({ type: 'session_info' });
-    const data = response.data as {
+    const data = response.data as unknown as {
       type: 'session_info';
       name: string;
       state: SessionInfo['state'];

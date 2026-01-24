@@ -7,16 +7,16 @@ export type RunResult = {
 /**
  * Exit code (if waited).
  */
-exit_code: number | null, 
+exit_code?: number, 
 /**
  * Standard output (if waited).
  */
-stdout: string | null, 
+stdout?: string, 
 /**
  * Standard error (if waited).
  */
-stderr: string | null, 
+stderr?: string, 
 /**
  * Process ID (if not waited).
  */
-pid: number | null, };
+pid?: number, };
