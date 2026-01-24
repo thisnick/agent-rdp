@@ -33,7 +33,7 @@ jobs:
 
   build:
     needs: release-please
-    if: ${{ always() && (needs.release-please.outputs.releases_created || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')) }}
+    if: ${{ always() && (needs.release-please.outputs.releases_created == 'true' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')) }}
     strategy:
       matrix:
         include:
