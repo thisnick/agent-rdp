@@ -5,19 +5,23 @@ use crate::automation::{
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use ts_rs::TS;
 
 /// A response from the daemon to the CLI.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct Response {
     /// Whether the operation succeeded.
     pub success: bool,
 
     /// Response data on success.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub data: Option<ResponseData>,
 
     /// Error details on failure.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub error: Option<ErrorInfo>,
 }
 
@@ -54,7 +58,8 @@ impl Response {
 }
 
 /// Response data variants.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ResponseData {
     /// Simple acknowledgment.
@@ -132,7 +137,8 @@ pub enum ResponseData {
 }
 
 /// Session information.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct SessionInfo {
     /// Session name.
     pub name: String,
@@ -142,25 +148,30 @@ pub struct SessionInfo {
 
     /// Connected server host (if connected).
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub host: Option<String>,
 
     /// Desktop width (if connected).
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub width: Option<u16>,
 
     /// Desktop height (if connected).
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub height: Option<u16>,
 
     /// Daemon process ID.
     pub pid: u32,
 
     /// Time since daemon started (seconds).
+    #[ts(type = "number")]
     pub uptime_secs: u64,
 }
 
 /// Connection state.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 #[serde(rename_all = "snake_case")]
 pub enum ConnectionState {
     /// Not connected to any RDP server.
@@ -174,7 +185,8 @@ pub enum ConnectionState {
 }
 
 /// Summary of a session for listing.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct SessionSummary {
     /// Session name.
     pub name: String,
@@ -182,11 +194,13 @@ pub struct SessionSummary {
     pub state: ConnectionState,
     /// Connected host (if any).
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub host: Option<String>,
 }
 
 /// Mapped drive information.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct MappedDrive {
     /// Drive name.
     pub name: String,
@@ -195,7 +209,8 @@ pub struct MappedDrive {
 }
 
 /// OCR locate result.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct LocateResult {
     /// Matching text regions found.
     pub matches: Vec<OcrMatch>,
@@ -204,7 +219,8 @@ pub struct LocateResult {
 }
 
 /// A text region found by OCR.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct OcrMatch {
     /// Recognized text.
     pub text: String,
@@ -223,7 +239,8 @@ pub struct OcrMatch {
 }
 
 /// Error information.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct ErrorInfo {
     /// Error code.
     pub code: ErrorCode,
@@ -232,7 +249,8 @@ pub struct ErrorInfo {
 }
 
 /// Error codes for structured error handling.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Error)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Error, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
     /// Not connected to an RDP server.

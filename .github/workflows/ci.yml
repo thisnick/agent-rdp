@@ -124,3 +124,83 @@ jobs:
       - name: Skip message
         if: steps.filter.outputs.ps != 'true'
         run: echo "No PowerShell changes detected, skipping lint"
+
+  schema-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for schema-related changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            schema:
+              - 'crates/agent-rdp-protocol/**'
+              - 'packages/agent-rdp/src/types.ts'
+              - 'crates/agent-rdp-daemon/src/automation/scripts/**'
+              - '.github/workflows/ci.yml'
+
+      - name: Install Rust
+        if: steps.filter.outputs.schema == 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        if: steps.filter.outputs.schema == 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-schema-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Generate TypeScript types and fixtures
+        if: steps.filter.outputs.schema == 'true'
+        run: cargo test -p agent-rdp-protocol --lib
+
+      - name: Verify generated TypeScript types are fresh
+        if: steps.filter.outputs.schema == 'true'
+        run: |
+          if [ ! -d "packages/agent-rdp/src/generated" ]; then
+            echo "Generated TypeScript directory not found"
+            exit 1
+          fi
+          count=$(ls -1 packages/agent-rdp/src/generated/*.ts 2>/dev/null | wc -l)
+          echo "Generated $count TypeScript files"
+          if [ "$count" -lt 10 ]; then
+            echo "Expected at least 10 generated TypeScript files"
+            exit 1
+          fi
+          # Check that generated files match what's checked in
+          if git diff --quiet packages/agent-rdp/src/generated/; then
+            echo "Generated TypeScript files are up-to-date"
+          else
+            echo "ERROR: Generated TypeScript files are out of date!"
+            echo "Please run 'cargo test -p agent-rdp-protocol generate' and commit the changes"
+            git diff packages/agent-rdp/src/generated/
+            exit 1
+          fi
+
+      - name: Verify generated fixtures are fresh
+        if: steps.filter.outputs.schema == 'true'
+        run: |
+          if git diff --quiet fixtures/; then
+            echo "Generated fixtures are up-to-date"
+          else
+            echo "ERROR: Generated fixtures are out of date!"
+            echo "Please run 'cargo test -p agent-rdp-protocol generate' and commit the changes"
+            git diff fixtures/
+            exit 1
+          fi
+
+      - name: Validate PowerShell fixtures
+        if: steps.filter.outputs.schema == 'true'
+        shell: pwsh
+        run: ./scripts/test-ps-fixtures.ps1
+
+      - name: Skip message
+        if: steps.filter.outputs.schema != 'true'
+        run: echo "No schema-related changes detected, skipping validation"

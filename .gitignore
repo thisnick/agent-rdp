@@ -41,3 +41,6 @@ Thumbs.db
 *.png
 *.bmp
 .content/
+
+# Test fixtures (generated during test, not checked in)
+fixtures/

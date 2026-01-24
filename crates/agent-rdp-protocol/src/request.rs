@@ -2,9 +2,11 @@
 
 use crate::automation::AutomateRequest;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 /// A request from the CLI to the daemon.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Request {
     /// Connect to an RDP server.
@@ -48,7 +50,8 @@ pub enum Request {
 }
 
 /// A drive to map at connect time.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct DriveMapping {
     /// Local path to map.
     pub path: String,
@@ -57,7 +60,8 @@ pub struct DriveMapping {
 }
 
 /// RDP connection parameters.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct ConnectRequest {
     /// Server hostname or IP address.
     pub host: String,
@@ -73,6 +77,7 @@ pub struct ConnectRequest {
 
     /// Optional domain.
     #[serde(default)]
+    #[ts(optional)]
     pub domain: Option<String>,
 
     /// Desktop width in pixels.
@@ -136,7 +141,8 @@ impl Default for ConnectRequest {
 }
 
 /// Screenshot request parameters.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct ScreenshotRequest {
     /// Image format.
     #[serde(default)]
@@ -144,7 +150,8 @@ pub struct ScreenshotRequest {
 }
 
 /// Supported image formats.
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 #[serde(rename_all = "lowercase")]
 pub enum ImageFormat {
     #[default]
@@ -153,7 +160,8 @@ pub enum ImageFormat {
 }
 
 /// Mouse operation request.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum MouseRequest {
     /// Move the mouse cursor.
@@ -187,7 +195,8 @@ pub enum MouseRequest {
 }
 
 /// Mouse button identifiers.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 #[serde(rename_all = "snake_case")]
 pub enum MouseButton {
     Left,
@@ -196,7 +205,8 @@ pub enum MouseButton {
 }
 
 /// Keyboard operation request.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum KeyboardRequest {
     /// Type a text string (Unicode).
@@ -213,7 +223,8 @@ pub enum KeyboardRequest {
 }
 
 /// Scroll operation request.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct ScrollRequest {
     /// Scroll direction.
     pub direction: ScrollDirection,
@@ -224,9 +235,11 @@ pub struct ScrollRequest {
 
     /// Optional position to scroll at.
     #[serde(default)]
+    #[ts(optional)]
     pub x: Option<u16>,
 
     #[serde(default)]
+    #[ts(optional)]
     pub y: Option<u16>,
 }
 
@@ -235,7 +248,8 @@ fn default_scroll_amount() -> u32 {
 }
 
 /// Scroll direction.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 #[serde(rename_all = "lowercase")]
 pub enum ScrollDirection {
     Up,
@@ -245,7 +259,8 @@ pub enum ScrollDirection {
 }
 
 /// Clipboard operation request.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum ClipboardRequest {
     /// Get clipboard text content.
@@ -258,7 +273,8 @@ pub enum ClipboardRequest {
 /// Drive mapping operation request.
 /// Note: Drives are configured at connect time with --drive flag.
 /// Dynamic mapping/unmapping is not supported by the RDP protocol.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum DriveRequest {
     /// List mapped drives.
@@ -267,7 +283,8 @@ pub enum DriveRequest {
 
 /// OCR-based text location request.
 /// Uses screenshot + OCR to find text on screen and return coordinates.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct LocateRequest {
     /// Text to search for (ignored if `all` is true).
     #[serde(default)]
