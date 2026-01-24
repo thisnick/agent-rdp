@@ -294,6 +294,8 @@ agent-rdp view --port 9224
 
 ## Tips
 
+**Prefer `automate fill` over `keyboard type`** when automation is enabled—it's lossless (no dropped characters) and faster.
+
 ### Opening applications
 
 Use `automate run` to launch apps directly:
