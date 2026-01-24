@@ -7,7 +7,6 @@
       "component": "agent-rdp-rust",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
-      "skip-github-release": true,
       "changelog-path": "CHANGELOG-rust.md",
       "extra-files": [
         {
@@ -38,43 +37,37 @@
       "release-type": "node",
       "component": "darwin-arm64",
       "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": true,
-      "skip-github-release": true
+      "bump-patch-for-minor-pre-major": true
     },
     "packages/darwin-x64": {
       "release-type": "node",
       "component": "darwin-x64",
       "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": true,
-      "skip-github-release": true
+      "bump-patch-for-minor-pre-major": true
     },
     "packages/linux-x64": {
       "release-type": "node",
       "component": "linux-x64",
       "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": true,
-      "skip-github-release": true
+      "bump-patch-for-minor-pre-major": true
     },
     "packages/linux-arm64": {
       "release-type": "node",
       "component": "linux-arm64",
       "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": true,
-      "skip-github-release": true
+      "bump-patch-for-minor-pre-major": true
     },
     "packages/win32-x64": {
       "release-type": "node",
       "component": "win32-x64",
       "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": true,
-      "skip-github-release": true
+      "bump-patch-for-minor-pre-major": true
     },
     "packages/win32-arm64": {
       "release-type": "node",
       "component": "win32-arm64",
       "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": true,
-      "skip-github-release": true
+      "bump-patch-for-minor-pre-major": true
     }
   },
   "plugins": [
