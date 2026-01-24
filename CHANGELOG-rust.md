@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.2](https://github.com/thisnick/agent-rdp/compare/agent-rdp-rust-v0.6.1...agent-rdp-rust-v0.6.2) (2026-01-24)
+
+
+### Features
+
+* add AGENT_RDP_HOST and AGENT_RDP_PORT env vars, clean up env var docs ([#64](https://github.com/thisnick/agent-rdp/issues/64)) ([cd4370c](https://github.com/thisnick/agent-rdp/commit/cd4370c6ca3fcbb96c29fd8d1242628748b1723c))
+
+
+### Bug Fixes
+
+* remove skip-github-release to ensure tags are created for all components ([02948b4](https://github.com/thisnick/agent-rdp/commit/02948b4ca47d9a1b3a3ae2a746f8f7ff9586790c))
+
 ## [0.6.1](https://github.com/thisnick/agent-rdp/compare/agent-rdp-rust-v0.6.0...agent-rdp-rust-v0.6.1) (2026-01-24)
 
 
