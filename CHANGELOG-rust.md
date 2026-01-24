@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/thisnick/agent-rdp/compare/agent-rdp-rust-v0.6.0...agent-rdp-rust-v0.6.1) (2026-01-24)
+
+
+### Features
+
+* replace file-based IPC with Dynamic Virtual Channel for automation ([#59](https://github.com/thisnick/agent-rdp/issues/59)) ([3a52efb](https://github.com/thisnick/agent-rdp/commit/3a52efbe36afea19f0eeb457d7b221be903082ed))
+
 ## [0.6.0](https://github.com/thisnick/agent-rdp/compare/agent-rdp-rust-v0.5.3...agent-rdp-rust-v0.6.0) (2026-01-24)
 
 

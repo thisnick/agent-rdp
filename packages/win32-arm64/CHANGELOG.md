@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/thisnick/agent-rdp/compare/win32-arm64-v0.6.0...win32-arm64-v0.6.1) (2026-01-24)
+
+
+### Miscellaneous Chores
+
+* **win32-arm64:** Synchronize agent-rdp packages versions
+
 ## [0.6.0](https://github.com/thisnick/agent-rdp/compare/win32-arm64-v0.5.3...win32-arm64-v0.6.0) (2026-01-24)
 
 
