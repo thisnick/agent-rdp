@@ -177,7 +177,7 @@ fn parse_snapshot_response(data: serde_json::Value) -> anyhow::Result<Accessibil
         .to_string();
     let ref_count = data["ref_count"].as_u64().unwrap_or(0) as u32;
     let truncated = data["truncated"].as_bool().unwrap_or(false);
-    let max_depth = data["max_depth"].as_u64().unwrap_or(5) as u32;
+    let max_depth = data["max_depth"].as_u64().unwrap_or(10) as u32;
     let root_data = &data["root"];
 
     let root = parse_element(root_data)?;
