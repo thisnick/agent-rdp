@@ -18,8 +18,10 @@ use ironrdp::pdu::rdp::capability_sets::MajorPlatformType;
 use ironrdp::pdu::rdp::client_info::PerformanceFlags;
 use ironrdp::session::image::DecodedImage;
 use ironrdp::session::{ActiveStage, ActiveStageOutput};
+use ironrdp_dvc::DrdynvcClient;
 use ironrdp_rdpdr::Rdpdr;
 
+use crate::automation::{AutomationDvc, SharedDvcState};
 use crate::rdpdr::MultiDriveBackend;
 use ironrdp_rdpsnd::client::{NoopRdpsndBackend, Rdpsnd};
 use ironrdp_tokio::{FramedWrite, TokioFramed};
@@ -65,7 +67,11 @@ pub struct RdpConfig {
     pub height: u16,
     /// Drives to map at connect time.
     pub drives: Vec<DriveMapping>,
+    /// Shared DVC state for automation (enables DVC channel if provided).
+    pub automation_dvc_state: Option<SharedDvcState>,
 }
+
+use crate::automation::DvcCommandReceiver;
 
 /// Commands sent to the background frame processor.
 enum SessionCommand {
@@ -213,6 +219,26 @@ impl RdpSession {
             }
         }
 
+        // Set up DRDYNVC (dynamic virtual channels) for automation if enabled
+        let dvc_command_rx: Option<DvcCommandReceiver> = if let Some(dvc_state) = config.automation_dvc_state {
+            // Create command channel for sending DVC data
+            let (command_tx, command_rx) = tokio::sync::mpsc::unbounded_channel();
+
+            // Store the sender in the shared state
+            {
+                let mut state = dvc_state.lock();
+                state.command_tx = Some(command_tx);
+            }
+
+            let automation_dvc = AutomationDvc::new(dvc_state);
+            let drdynvc = DrdynvcClient::new().with_dynamic_channel(automation_dvc);
+            connector.attach_static_channel(drdynvc);
+            info!("Dynamic Virtual Channel enabled for automation");
+            Some(command_rx)
+        } else {
+            None
+        };
+
         // Begin connection (pre-TLS)
         let should_upgrade = ironrdp_tokio::connect_begin(&mut framed, &mut connector)
             .await
@@ -289,6 +315,7 @@ impl RdpSession {
                 command_rx,
                 disconnect_notify,
                 clipboard_backend_rx,
+                dvc_command_rx,
             )
             .await;
         });
@@ -502,6 +529,7 @@ async fn run_frame_processor(
     mut command_rx: mpsc::Receiver<SessionCommand>,
     disconnect_notify: Option<DisconnectNotify>,
     mut clipboard_backend_rx: mpsc::UnboundedReceiver<clipboard::BackendMessage>,
+    mut dvc_command_rx: Option<DvcCommandReceiver>,
 ) {
     info!("Frame processor started");
     let mut graceful_shutdown = false;
@@ -725,6 +753,36 @@ async fn run_frame_processor(
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+
+            // Handle DVC commands (for automation)
+            dvc_cmd = async {
+                match dvc_command_rx.as_mut() {
+                    Some(rx) => rx.recv().await,
+                    None => std::future::pending().await,
+                }
+            } => {
+                if let Some(cmd) = dvc_cmd {
+                    debug!("Sending {} bytes on DVC channel {}", cmd.data.len(), cmd.channel_id);
+                    use ironrdp_dvc::pdu::DataPdu;
+                    use ironrdp_svc::SvcMessage;
+
+                    let data_pdu = ironrdp_dvc::pdu::DrdynvcDataPdu::Data(
+                        DataPdu::new(cmd.channel_id, cmd.data)
+                    );
+                    let svc_msg = SvcMessage::from(data_pdu);
+
+                    match active_stage.encode_dvc_messages(vec![svc_msg]) {
+                        Ok(frame) => {
+                            if let Err(e) = framed.write_all(&frame).await {
+                                error!("Failed to send DVC data: {}", e);
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed to encode DVC data: {:?}", e);
                         }
                     }
                 }

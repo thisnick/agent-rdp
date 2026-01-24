@@ -27,6 +27,7 @@ ironrdp-rdpdr = { workspace = true }
 ironrdp-rdpdr-native = { workspace = true }
 ironrdp-rdpsnd = { workspace = true }
 ironrdp-svc = { workspace = true }
+ironrdp-dvc = { workspace = true }
 
 # Certificate parsing
 x509-cert = { workspace = true }

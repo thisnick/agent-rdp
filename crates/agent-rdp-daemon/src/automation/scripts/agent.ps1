@@ -1,7 +1,9 @@
 #Requires -Version 5.1
 # agent-rdp Windows UI Automation Agent
-# Communicates via file-based IPC over mapped drive
+# Communicates via Dynamic Virtual Channel (DVC) with the Rust daemon
 
+# BasePath kept for reference/logging (RDPDR drive still mapped for future file transfer)
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'BasePath')]
 param(
     [string]$BasePath = "\\TSCLIENT\agent-automation"
 )
@@ -19,10 +21,10 @@ Add-Type -AssemblyName System.Windows.Forms
 # Global state
 $script:RefMap = @{}  # ref number -> AutomationElement mapping
 $script:SnapshotId = $null
-$script:Version = "1.0.0"
-$script:LogPath = "$BasePath\agent.log"
-# Local log path on Windows machine for debugging when RDPDR is unreliable
+$script:Version = "1.1.0"  # Version bump for DVC support
+# Local log path on Windows machine (RDPDR not used for logging anymore)
 $script:LocalLogPath = "$env:TEMP\agent-rdp-automation.log"
+$script:DvcHandle = [IntPtr]::Zero
 
 # ============ LOGGING ============
 
@@ -31,14 +33,9 @@ function Write-Log {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff"
     $logEntry = "[$timestamp] [$Level] $Message"
 
-    # Always write to local log first (reliable, on Windows machine)
+    # Write to local log only (reliable, on Windows machine)
     try {
         Add-Content -Path $script:LocalLogPath -Value $logEntry -ErrorAction SilentlyContinue
-    } catch {}
-
-    # Also try to write to RDPDR log (may fail if drive mapping has issues)
-    try {
-        Add-Content -Path $script:LogPath -Value $logEntry -ErrorAction SilentlyContinue
     } catch {}
 }
 
@@ -49,220 +46,179 @@ $scriptDir = $PSScriptRoot
 . "$scriptDir\lib\snapshot.ps1"
 . "$scriptDir\lib\selectors.ps1"
 . "$scriptDir\lib\actions.ps1"
-
-# ============ HANDSHAKE ============
-
-function Write-Handshake {
-    $handshake = @{
-        ready = $true
-        version = $script:Version
-        agent_pid = $PID
-        started_at = (Get-Date -Format "o")
-        capabilities = @(
-            "snapshot", "click", "select", "toggle", "expand", "collapse",
-            "context_menu", "focus", "get", "fill", "clear",
-            "scroll", "window", "run", "wait_for", "status"
-        )
-    }
-
-    $handshakePath = "$BasePath\handshake.json"
-    $handshake | ConvertTo-Json -Depth 5 | Set-Content $handshakePath -Encoding UTF8
-}
+. "$scriptDir\lib\dvc.ps1"
 
 # ============ MAIN LOOP ============
 
 function Start-Agent {
-    Write-Log "Agent starting, BasePath=$BasePath"
+    Write-Log "Agent starting with DVC transport"
     Write-Log "Local log path: $script:LocalLogPath"
-    Write-Log "Looking for requests in: $BasePath\requests"
-    Write-Log "Writing responses to: $BasePath\responses"
+    Write-Log "BasePath (for reference): $BasePath"
 
-    # Check if base path exists
-    if (Test-Path $BasePath) {
-        Write-Log "Base path exists: YES"
-        $items = Get-ChildItem $BasePath -ErrorAction SilentlyContinue
-        Write-Log "Base path contents: $($items.Name -join ', ')"
-    } else {
-        Write-Log "Base path exists: NO - this is a problem!" "ERROR"
+    # Open DVC channel
+    Write-Log "Opening DVC channel..."
+    try {
+        $script:DvcHandle = Open-DvcChannel
+        Write-Log "DVC channel opened successfully"
+    } catch {
+        Write-Log "Failed to open DVC channel: $($_.Exception.Message)" "ERROR"
+        throw
     }
 
-    Write-Handshake
-    Write-Log "Handshake written"
+    # Send handshake
+    $capabilities = @(
+        "snapshot", "click", "select", "toggle", "expand", "collapse",
+        "context_menu", "focus", "get", "fill", "clear",
+        "scroll", "window", "run", "wait_for", "status"
+    )
 
-    $requestDir = "$BasePath\requests"
-    $responseDir = "$BasePath\responses"
-
-    # Ensure directories exist
-    if (-not (Test-Path $requestDir)) {
-        New-Item -ItemType Directory -Path $requestDir -Force | Out-Null
-        Write-Log "Created requests directory: $requestDir"
-    } else {
-        Write-Log "Requests directory already exists: $requestDir"
-    }
-    if (-not (Test-Path $responseDir)) {
-        New-Item -ItemType Directory -Path $responseDir -Force | Out-Null
-        Write-Log "Created responses directory: $responseDir"
-    } else {
-        Write-Log "Responses directory already exists: $responseDir"
+    try {
+        Send-DvcHandshake -Handle $script:DvcHandle -Version $script:Version -Capabilities $capabilities
+        Write-Log "DVC handshake sent: version=$($script:Version)"
+    } catch {
+        Write-Log "Failed to send handshake: $($_.Exception.Message)" "ERROR"
+        throw
     }
 
-    Write-Log "Entering main loop - polling $requestDir for req_*.json files"
+    Write-Log "Entering main DVC loop"
 
-    $pollCount = 0
+    $loopCount = 0
+
     while ($true) {
-        $pollCount++
+        $loopCount++
 
-        # Log every 100 polls to show we're alive
-        if ($pollCount % 100 -eq 0) {
-            Write-Log "Poll #$pollCount - still running..."
-            # Debug: show what's in the requests directory
-            $allFiles = Get-ChildItem -Path $requestDir -ErrorAction SilentlyContinue
-            Write-Log "  Request dir contents: $($allFiles.Name -join ', ')"
-            $filtered = Get-ChildItem -Path $requestDir -Filter "req_*.json" -ErrorAction SilentlyContinue
-            Write-Log "  Filtered (req_*.json): $($filtered.Name -join ', ')"
+        # Log every 1000 loops to show we're alive
+        if ($loopCount % 1000 -eq 0) {
+            Write-Log "Loop #$loopCount - still running via DVC..."
         }
 
-        # Check if mapped drive is still available (cleanup detection)
-        if (-not (Test-Path $BasePath)) {
-            Write-Log "Mapped drive gone, exiting..." "WARN"
-            exit 0
-        }
+        try {
+            # Read request from DVC (with short timeout for polling)
+            # Rust sends requests proactively, we just need to read them
+            $request = Read-DvcMessage -Handle $script:DvcHandle -TimeoutMs 100
 
-        # Look for request files - use Where-Object since -Filter wildcards don't work on RDPDR drives
-        $requests = Get-ChildItem -Path $requestDir -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "req_*.json" }
+            if ($null -eq $request) {
+                # No message available, continue polling
+                continue
+            }
 
-        foreach ($reqFile in $requests) {
-            Write-Log "Processing request: $($reqFile.Name)"
+            # Validate message type
+            if ($request.type -ne "request") {
+                Write-Log "Ignoring non-request message: type=$($request.type)" "WARN"
+                continue
+            }
+
+            Write-Log "Processing DVC request: id=$($request.id), command=$($request.command)"
+
+            $responseData = $null
+            $responseError = $null
+            $success = $true
 
             try {
-                $requestContent = Get-Content $reqFile.FullName -Raw
-                Write-Log "Request content: $requestContent"
-                $request = $requestContent | ConvertFrom-Json
-
-                Write-Log "Parsed request: id=$($request.id), command=$($request.command)"
-
-                $response = @{
-                    id = $request.id
-                    timestamp = (Get-Date -Format "o")
-                    success = $true
-                    data = $null
-                    error = $null
+                $responseData = switch ($request.command) {
+                    "snapshot"     { Invoke-Snapshot -Params $request.params }
+                    "click"        { Invoke-Click -Params $request.params }
+                    "select"       { Invoke-Select -Params $request.params }
+                    "toggle"       { Invoke-Toggle -Params $request.params }
+                    "expand"       { Invoke-Expand -Params $request.params }
+                    "collapse"     { Invoke-Collapse -Params $request.params }
+                    "context_menu" { Invoke-ContextMenu -Params $request.params }
+                    "focus"        { Invoke-Focus -Params $request.params }
+                    "get"          { Invoke-Get -Params $request.params }
+                    "fill"         { Invoke-Fill -Params $request.params }
+                    "clear"        { Invoke-Clear -Params $request.params }
+                    "scroll"       { Invoke-Scroll -Params $request.params }
+                    "window"       { Invoke-Window -Params $request.params }
+                    "run"          { Invoke-Run -Params $request.params }
+                    "wait_for"     { Invoke-WaitFor -Params $request.params }
+                    "status"       { Get-AgentStatus }
+                    default        { throw "Unknown command: $($request.command)" }
                 }
-
-                try {
-                    Write-Log "Executing command: $($request.command)"
-                    $response.data = switch ($request.command) {
-                        "snapshot"     { Invoke-Snapshot -Params $request.params }
-                        "click"        { Invoke-Click -Params $request.params }
-                        "select"       { Invoke-Select -Params $request.params }
-                        "toggle"       { Invoke-Toggle -Params $request.params }
-                        "expand"       { Invoke-Expand -Params $request.params }
-                        "collapse"     { Invoke-Collapse -Params $request.params }
-                        "context_menu" { Invoke-ContextMenu -Params $request.params }
-                        "focus"        { Invoke-Focus -Params $request.params }
-                        "get"          { Invoke-Get -Params $request.params }
-                        "fill"         { Invoke-Fill -Params $request.params }
-                        "clear"        { Invoke-Clear -Params $request.params }
-                        "scroll"       { Invoke-Scroll -Params $request.params }
-                        "window"       { Invoke-Window -Params $request.params }
-                        "run"          { Invoke-Run -Params $request.params }
-                        "wait_for"     { Invoke-WaitFor -Params $request.params }
-                        "status"       { Get-AgentStatus }
-                        default        { throw "Unknown command: $($request.command)" }
-                    }
-                    Write-Log "Command succeeded: $($request.command)"
-                } catch {
-                    Write-Log "Command failed: $($_.Exception.Message)" "ERROR"
-                    $response.success = $false
-                    $response.error = @{
-                        code = "command_failed"
-                        message = $_.Exception.Message
-                    }
-                }
-
-                # Write response atomically: write to temp file, then rename
-                # This prevents Rust from reading a partially-written file
-                $resPath = "$responseDir\res_$($request.id).json"
-                $tmpPath = "$responseDir\res_$($request.id).tmp"
-
-                Write-Log "Writing response to: $resPath (via temp file)"
-                $responseJson = $response | ConvertTo-Json -Depth 20
-                $responseJson | Set-Content $tmpPath -Encoding UTF8
-
-                # Atomic rename - Rust will see either no file or complete file
-                Move-Item -Path $tmpPath -Destination $resPath -Force
-                Write-Log "Response written successfully"
-
-                # Consumer deletes: PowerShell consumes request, so delete it here
-                Remove-Item $reqFile.FullName -Force -ErrorAction SilentlyContinue
-                Write-Log "Request file cleaned up"
-
+                Write-Log "Command succeeded: $($request.command)"
             } catch {
-                Write-Log "Error processing request: $($_.Exception.Message)" "ERROR"
-                Write-Log $_.ScriptStackTrace "ERROR"
-
-                # Try to write an error response if we have a request ID
-                try {
-                    if ($request -and $request.id) {
-                        $errorResponse = @{
-                            id = $request.id
-                            timestamp = (Get-Date -Format "o")
-                            success = $false
-                            data = $null
-                            error = @{
-                                code = "request_error"
-                                message = $_.Exception.Message
-                            }
-                        }
-                        # Atomic write for error response too
-                        $resPath = "$responseDir\res_$($request.id).json"
-                        $tmpPath = "$responseDir\res_$($request.id).tmp"
-                        $errorResponse | ConvertTo-Json -Depth 10 | Set-Content $tmpPath -Encoding UTF8
-                        Move-Item -Path $tmpPath -Destination $resPath -Force
-                        Write-Log "Wrote error response to: $resPath"
-                    }
-                } catch {
-                    Write-Log "Failed to write error response: $($_.Exception.Message)" "ERROR"
+                Write-Log "Command failed: $($_.Exception.Message)" "ERROR"
+                $success = $false
+                $responseError = @{
+                    code = "command_failed"
+                    message = $_.Exception.Message
                 }
-
-                # Consumer deletes: clean up request file even on error
-                try {
-                    if ($reqFile) {
-                        Remove-Item $reqFile.FullName -Force -ErrorAction SilentlyContinue
-                    }
-                } catch {}
             }
-        }
 
-        Start-Sleep -Milliseconds 50
+            # Send response via DVC
+            try {
+                Send-DvcResponse -Handle $script:DvcHandle -Id $request.id -Success $success -Data $responseData -ErrorInfo $responseError
+                Write-Log "Response sent for request $($request.id)"
+            } catch {
+                Write-Log "Failed to send response: $($_.Exception.Message)" "ERROR"
+                # If we can't send response, channel may be dead
+                throw
+            }
+
+        } catch {
+            $errorMsg = $_.Exception.Message
+            Write-Log "DVC error: $errorMsg" "ERROR"
+
+            # Check if it's a channel error (likely means daemon disconnected)
+            if ($errorMsg -match "Win32 error" -or $errorMsg -match "channel") {
+                Write-Log "DVC channel error, exiting agent" "WARN"
+                break
+            }
+
+            # For other errors, try to continue
+            Start-Sleep -Milliseconds 100
+        }
+    }
+}
+
+# ============ CLEANUP ============
+
+function Stop-Agent {
+    Write-Log "Stopping agent..."
+
+    if ($script:DvcHandle -ne [IntPtr]::Zero) {
+        try {
+            Close-DvcChannel -Handle $script:DvcHandle
+            Write-Log "DVC channel closed"
+        } catch {
+            Write-Log "Error closing DVC channel: $($_.Exception.Message)" "WARN"
+        }
+        $script:DvcHandle = [IntPtr]::Zero
     }
 }
 
 # ============ ENTRY POINT ============
 
-# Never exit - keep trying to restart on errors
-while ($true) {
+# Handle clean shutdown
+$exitHandler = {
+    Stop-Agent
+}
+Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action $exitHandler | Out-Null
+
+# Run with retry logic
+$maxRetries = 3
+$retryCount = 0
+
+while ($retryCount -lt $maxRetries) {
     try {
-        Write-Log "=== Agent process starting (PID: $PID) ==="
+        Write-Log "=== Agent process starting (PID: $PID, attempt: $($retryCount + 1)) ==="
         Start-Agent
-        # If Start-Agent returns normally (mapped drive gone), exit
+        # If Start-Agent returns normally, exit cleanly
         Write-Log "Agent exiting normally"
+        Stop-Agent
         exit 0
     } catch {
-        Write-Log "FATAL ERROR (will retry): $($_.Exception.Message)" "ERROR"
+        $retryCount++
+        Write-Log "FATAL ERROR (attempt $retryCount/$maxRetries): $($_.Exception.Message)" "ERROR"
         Write-Log $_.ScriptStackTrace "ERROR"
-        try {
-            $errorLog = "$BasePath\error.log"
-            "$(Get-Date -Format 'o') FATAL: $($_.Exception.Message)`n$($_.ScriptStackTrace)" | Out-File $errorLog -Append
-        } catch {}
 
-        # Check if drive is still there - if not, exit
-        if (-not (Test-Path $BasePath)) {
-            Write-Log "Drive disconnected, exiting"
-            exit 0
+        Stop-Agent
+
+        if ($retryCount -lt $maxRetries) {
+            Write-Log "Waiting before retry..."
+            Start-Sleep -Seconds 2
         }
-
-        # Wait before retrying
-        Start-Sleep -Seconds 2
     }
 }
+
+Write-Log "Max retries exceeded, agent exiting"
+exit 1

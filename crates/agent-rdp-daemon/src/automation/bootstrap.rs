@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
-use super::{AutomationState, FileIpc};
+use super::{new_shared_dvc_state, AutomationState, DvcIpc};
 use crate::rdp_session::RdpSession;
 
 /// Embedded PowerShell agent script (main entry point).
@@ -20,6 +20,7 @@ const LIB_TYPES: &str = include_str!("scripts/lib/types.ps1");
 const LIB_SNAPSHOT: &str = include_str!("scripts/lib/snapshot.ps1");
 const LIB_SELECTORS: &str = include_str!("scripts/lib/selectors.ps1");
 const LIB_ACTIONS: &str = include_str!("scripts/lib/actions.ps1");
+const LIB_DVC: &str = include_str!("scripts/lib/dvc.ps1");
 
 /// Automation bootstrap handler.
 pub struct AutomationBootstrap {
@@ -34,6 +35,9 @@ impl AutomationBootstrap {
     }
 
     /// Initialize automation directory and write the agent script.
+    ///
+    /// This creates the directory structure and scripts needed for RDPDR-based
+    /// bootstrap. The actual IPC will be over DVC once the agent starts.
     pub async fn initialize(&self, state: &mut AutomationState) -> anyhow::Result<()> {
         info!("Initializing automation for session");
 
@@ -42,8 +46,6 @@ impl AutomationBootstrap {
         tokio::fs::create_dir_all(automation_dir).await?;
         tokio::fs::create_dir_all(automation_dir.join("scripts")).await?;
         tokio::fs::create_dir_all(automation_dir.join("scripts/lib")).await?;
-        tokio::fs::create_dir_all(automation_dir.join("requests")).await?;
-        tokio::fs::create_dir_all(automation_dir.join("responses")).await?;
 
         // Write the PowerShell agent script (main entry point)
         let script_path = state.script_path();
@@ -56,12 +58,14 @@ impl AutomationBootstrap {
         tokio::fs::write(lib_dir.join("snapshot.ps1"), LIB_SNAPSHOT).await?;
         tokio::fs::write(lib_dir.join("selectors.ps1"), LIB_SELECTORS).await?;
         tokio::fs::write(lib_dir.join("actions.ps1"), LIB_ACTIONS).await?;
+        tokio::fs::write(lib_dir.join("dvc.ps1"), LIB_DVC).await?;
         debug!("Wrote automation library files to {:?}", lib_dir);
 
-        // Initialize file IPC
-        let ipc = FileIpc::new(automation_dir.clone());
-        ipc.initialize().await?;
-        state.ipc = Some(ipc);
+        // Initialize DVC state and IPC
+        let dvc_state = new_shared_dvc_state();
+        let dvc_ipc = DvcIpc::new(dvc_state.clone());
+        state.dvc_state = Some(dvc_state);
+        state.dvc_ipc = Some(dvc_ipc);
 
         state.enabled = true;
         info!(
@@ -117,28 +121,53 @@ impl AutomationBootstrap {
         Ok(())
     }
 
-    /// Wait for the agent to complete handshake.
+    /// Wait for the agent to complete DVC handshake.
     pub async fn wait_for_agent(
         &self,
         state: &mut AutomationState,
         max_attempts: u32,
     ) -> anyhow::Result<()> {
-        let ipc = state
-            .ipc
+        let dvc_ipc = state
+            .dvc_ipc
             .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("IPC not initialized"))?;
+            .ok_or_else(|| anyhow::anyhow!("DVC IPC not initialized"))?;
 
-        let handshake = ipc.wait_for_handshake(max_attempts).await?;
+        let mut delay = Duration::from_millis(500);
+        let max_delay = Duration::from_secs(5);
 
-        state.agent_ready = true;
-        state.agent_pid = Some(handshake.agent_pid);
+        for attempt in 1..=max_attempts {
+            debug!(
+                "Checking for automation agent DVC handshake (attempt {}/{})",
+                attempt, max_attempts
+            );
 
-        info!(
-            "Automation agent ready: PID={}, version={}, capabilities={:?}",
-            handshake.agent_pid, handshake.version, handshake.capabilities
-        );
+            if dvc_ipc.is_ready() {
+                let version = dvc_ipc.agent_version().unwrap_or_default();
+                let pid = dvc_ipc.agent_pid().unwrap_or(0);
+                let caps = dvc_ipc.capabilities();
 
-        Ok(())
+                state.agent_ready = true;
+                state.agent_pid = Some(pid);
+
+                info!(
+                    "Automation agent ready via DVC: PID={}, version={}, capabilities={:?}",
+                    pid, version, caps
+                );
+
+                return Ok(());
+            }
+
+            if attempt < max_attempts {
+                debug!("Waiting {:?} before next handshake check", delay);
+                sleep(delay).await;
+                delay = (delay * 3 / 2).min(max_delay); // Exponential backoff (1.5x)
+            }
+        }
+
+        anyhow::bail!(
+            "Automation agent DVC handshake timed out after {} attempts",
+            max_attempts
+        )
     }
 
     /// Full bootstrap sequence: initialize, launch, and verify handshake.
@@ -176,13 +205,6 @@ impl AutomationBootstrap {
 
         info!("Cleaning up automation resources");
 
-        // Clean up IPC files
-        if let Some(ref ipc) = state.ipc {
-            if let Err(e) = ipc.cleanup().await {
-                warn!("Failed to cleanup IPC files: {}", e);
-            }
-        }
-
         // Remove automation directory
         let automation_dir = &state.automation_dir;
         if automation_dir.exists() {
@@ -196,7 +218,8 @@ impl AutomationBootstrap {
         state.enabled = false;
         state.agent_ready = false;
         state.agent_pid = None;
-        state.ipc = None;
+        state.dvc_ipc = None;
+        state.dvc_state = None;
 
         Ok(())
     }
@@ -218,8 +241,6 @@ mod tests {
         assert!(state.enabled);
         assert!(state.automation_dir.exists());
         assert!(state.script_path().exists());
-        assert!(state.requests_dir().exists());
-        assert!(state.responses_dir().exists());
 
         // Verify library files are created
         let lib_dir = state.automation_dir.join("scripts/lib");
@@ -227,6 +248,11 @@ mod tests {
         assert!(lib_dir.join("snapshot.ps1").exists());
         assert!(lib_dir.join("selectors.ps1").exists());
         assert!(lib_dir.join("actions.ps1").exists());
+        assert!(lib_dir.join("dvc.ps1").exists());
+
+        // Verify DVC IPC is initialized
+        assert!(state.dvc_ipc.is_some());
+        assert!(state.dvc_state.is_some());
     }
 
     #[test]
