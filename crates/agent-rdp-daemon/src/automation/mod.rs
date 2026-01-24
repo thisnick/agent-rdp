@@ -1,14 +1,19 @@
 //! Windows UI Automation module.
 //!
-//! This module provides file-based IPC communication with a PowerShell agent
+//! This module provides DVC-based IPC communication with a PowerShell agent
 //! running on the remote Windows machine for UI automation via the Windows
 //! UI Automation API.
 
 mod bootstrap;
-mod file_ipc;
+pub mod dvc_channel;
+mod dvc_ipc;
 
 pub use bootstrap::AutomationBootstrap;
-pub use file_ipc::FileIpc;
+pub use dvc_channel::{
+    new_shared_dvc_state, AutomationDvc, DvcCommandReceiver, DvcCommandSender, DvcHandshake,
+    DvcSendCommand, SharedDvcState, CHANNEL_NAME,
+};
+pub use dvc_ipc::DvcIpc;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -22,12 +27,14 @@ pub struct AutomationState {
     pub enabled: bool,
     /// Unique ID for this automation session (different from RDP session ID).
     pub automation_id: String,
-    /// Path to the automation directory on the host side.
+    /// Path to the automation directory on the host side (for RDPDR bootstrap).
     pub automation_dir: PathBuf,
-    /// Drive name mapped via RDPDR.
+    /// Drive name mapped via RDPDR (still needed for bootstrap).
     pub drive_name: String,
-    /// File-based IPC client.
-    pub ipc: Option<FileIpc>,
+    /// DVC-based IPC client.
+    pub dvc_ipc: Option<DvcIpc>,
+    /// Shared DVC state (for processor access).
+    pub dvc_state: Option<SharedDvcState>,
     /// Whether the agent has completed handshake.
     pub agent_ready: bool,
     /// Agent process ID (if known).
@@ -45,7 +52,8 @@ impl AutomationState {
             automation_id,
             automation_dir,
             drive_name: "agent-automation".to_string(),
-            ipc: None,
+            dvc_ipc: None,
+            dvc_state: None,
             agent_ready: false,
             agent_pid: None,
         }
@@ -56,19 +64,9 @@ impl AutomationState {
         self.automation_dir.join("scripts").join("agent.ps1")
     }
 
-    /// Get the handshake file path.
-    pub fn handshake_path(&self) -> PathBuf {
-        self.automation_dir.join("handshake.json")
-    }
-
-    /// Get the requests directory path.
-    pub fn requests_dir(&self) -> PathBuf {
-        self.automation_dir.join("requests")
-    }
-
-    /// Get the responses directory path.
-    pub fn responses_dir(&self) -> PathBuf {
-        self.automation_dir.join("responses")
+    /// Check if DVC IPC is ready.
+    pub fn is_dvc_ready(&self) -> bool {
+        self.dvc_ipc.as_ref().map(|ipc| ipc.is_ready()).unwrap_or(false)
     }
 }
 

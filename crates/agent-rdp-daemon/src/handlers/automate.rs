@@ -27,7 +27,7 @@ pub async fn handle(
     }
 
     // Check if automation is enabled and agent is ready
-    let mut state = automation_state.lock().await;
+    let state = automation_state.lock().await;
     if !state.enabled {
         return Response::error(
             ErrorCode::AutomationNotEnabled,
@@ -35,52 +35,29 @@ pub async fn handle(
         );
     }
 
-    // If agent not ready, try checking for a late handshake
-    if !state.agent_ready {
-        if let Some(ref ipc) = state.ipc {
-            match ipc.check_handshake().await {
-                Ok(Some(handshake)) => {
-                    // Agent is now ready!
-                    state.agent_ready = true;
-                    state.agent_pid = Some(handshake.agent_pid);
-                    tracing::info!(
-                        "Automation agent became ready: PID={}, version={}",
-                        handshake.agent_pid,
-                        handshake.version
-                    );
-                }
-                Ok(None) => {
-                    return Response::error(
-                        ErrorCode::AutomationError,
-                        "Automation agent not ready. Agent may still be starting or failed to launch",
-                    );
-                }
-                Err(e) => {
-                    return Response::error(
-                        ErrorCode::AutomationError,
-                        format!("Failed to check automation agent status: {}", e),
-                    );
-                }
-            }
-        } else {
-            return Response::error(
-                ErrorCode::AutomationError,
-                "Automation IPC not initialized",
-            );
-        }
-    }
-
-    let ipc = match state.ipc.as_ref() {
+    // Check if DVC IPC is ready (handshake received)
+    let dvc_ipc = match state.dvc_ipc.as_ref() {
         Some(ipc) => ipc,
         None => {
             return Response::error(
                 ErrorCode::AutomationError,
-                "Automation IPC not initialized",
+                "Automation DVC IPC not initialized",
             );
         }
     };
 
-    // Send request to PowerShell agent
+    if !dvc_ipc.is_ready() {
+        return Response::error(
+            ErrorCode::AutomationError,
+            "Automation agent not ready. Agent may still be starting or failed to launch via DVC",
+        );
+    }
+
+    // Clone the IPC to release the lock before async operation
+    let ipc = dvc_ipc.clone();
+    drop(state);
+
+    // Send request to PowerShell agent via DVC
     match ipc.send_request(&request).await {
         Ok(data) => convert_response(request, data),
         Err(e) => {

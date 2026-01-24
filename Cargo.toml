@@ -38,6 +38,7 @@ ironrdp-rdpdr = "0.5"
 ironrdp-rdpdr-native = "0.5"
 ironrdp-rdpsnd = "0.7"
 ironrdp-svc = "0.6"
+ironrdp-dvc = "0.5"
 
 # Certificate parsing
 x509-cert = "0.2"

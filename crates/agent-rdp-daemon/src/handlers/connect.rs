@@ -79,6 +79,14 @@ pub async fn handle(
         );
     }
 
+    // Get DVC state for automation (if enabled)
+    let automation_dvc_state = if enable_automation {
+        let auto_state = automation_state.lock().await;
+        auto_state.dvc_state.clone()
+    } else {
+        None
+    };
+
     // Build configuration
     let config = RdpConfig {
         host: params.host.clone(),
@@ -89,6 +97,7 @@ pub async fn handle(
         width: params.width,
         height: params.height,
         drives,
+        automation_dvc_state,
     };
 
     // Attempt connection
