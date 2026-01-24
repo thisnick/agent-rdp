@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.3](https://github.com/thisnick/agent-rdp/compare/agent-rdp-rust-v0.5.2...agent-rdp-rust-v0.5.3) (2026-01-24)
+
+
+### Features
+
+* add IPC schema type generation with ts-rs ([#48](https://github.com/thisnick/agent-rdp/issues/48)) ([2f2953a](https://github.com/thisnick/agent-rdp/commit/2f2953a3abe816b71b8d43252af622ac22a5ec5d))
+
+
+### Bug Fixes
+
+* bump patch for feat commits in pre-1.0 ([dd2cdec](https://github.com/thisnick/agent-rdp/commit/dd2cdec315758bed02807ad478d8873be1879e62))
+
 ## [0.5.2](https://github.com/thisnick/agent-rdp/compare/agent-rdp-rust-v0.5.1...agent-rdp-rust-v0.5.2) (2026-01-23)
 
 
