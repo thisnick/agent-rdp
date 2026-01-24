@@ -4,7 +4,6 @@
 
 import type { RdpSession } from './index.js';
 import type {
-  AutomateRequest,
   AutomationSnapshot,
   AutomationElementValue,
   AutomationWindowInfo,
