@@ -1,9 +1,11 @@
 //! Automation types for Windows UI Automation via file-based IPC.
 
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 /// Automation request sent from CLI to daemon.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 #[serde(tag = "op", rename_all = "snake_case")]
 pub enum AutomateRequest {
     /// Take a snapshot of the accessibility tree.
@@ -171,7 +173,8 @@ fn default_run_timeout() -> u64 {
 }
 
 /// Scroll direction for automation.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 #[serde(rename_all = "snake_case")]
 pub enum AutomationScrollDirection {
     Up,
@@ -181,7 +184,8 @@ pub enum AutomationScrollDirection {
 }
 
 /// Window action for automation.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 #[serde(rename_all = "snake_case")]
 pub enum WindowAction {
     /// List all windows.
@@ -199,7 +203,8 @@ pub enum WindowAction {
 }
 
 /// State to wait for in WaitFor command.
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 #[serde(rename_all = "snake_case")]
 pub enum WaitState {
     /// Element is visible.
@@ -212,7 +217,8 @@ pub enum WaitState {
 }
 
 /// Accessibility tree snapshot.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct AccessibilitySnapshot {
     /// Unique snapshot ID.
     pub snapshot_id: String,
@@ -229,7 +235,8 @@ pub struct AccessibilitySnapshot {
 }
 
 /// An element in the accessibility tree.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct AccessibilityElement {
     /// Reference number (for @ref selectors).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -263,7 +270,8 @@ pub struct AccessibilityElement {
 }
 
 /// Bounding rectangle for an element.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct ElementBounds {
     pub x: i32,
     pub y: i32,
@@ -272,7 +280,8 @@ pub struct ElementBounds {
 }
 
 /// Element value response.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct ElementValue {
     /// Element name.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -289,7 +298,8 @@ pub struct ElementValue {
 }
 
 /// Window information.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct WindowInfo {
     /// Window title.
     pub title: String,
@@ -311,7 +321,8 @@ pub struct WindowInfo {
 }
 
 /// Automation agent status.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct AutomationStatus {
     /// Whether the automation agent is running.
     pub agent_running: bool,
@@ -327,7 +338,8 @@ pub struct AutomationStatus {
 }
 
 /// Command run result.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct RunResult {
     /// Exit code (if waited).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -344,7 +356,8 @@ pub struct RunResult {
 }
 
 /// Click action result.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct ClickResult {
     /// Whether the click was performed.
     pub clicked: bool,
@@ -359,7 +372,8 @@ pub struct ClickResult {
 }
 
 /// Handshake data from PowerShell agent.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct AutomationHandshake {
     /// Agent version.
     pub version: String,
@@ -375,18 +389,21 @@ pub struct AutomationHandshake {
 }
 
 /// Request sent to PowerShell agent via file IPC.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct FileIpcRequest {
     /// Unique request ID.
     pub id: String,
     /// Command to execute.
     pub command: String,
     /// Command parameters.
+    #[ts(type = "unknown")]
     pub params: serde_json::Value,
 }
 
 /// Response from PowerShell agent via file IPC.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct FileIpcResponse {
     /// Request ID this responds to.
     pub id: String,
@@ -396,6 +413,7 @@ pub struct FileIpcResponse {
     pub success: bool,
     /// Response data on success.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(type = "unknown")]
     pub data: Option<serde_json::Value>,
     /// Error details on failure.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -403,7 +421,8 @@ pub struct FileIpcResponse {
 }
 
 /// Error from PowerShell agent.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../packages/agent-rdp/src/generated/")]
 pub struct FileIpcError {
     /// Error code.
     pub code: String,

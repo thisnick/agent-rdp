@@ -41,3 +41,7 @@ Thumbs.db
 *.png
 *.bmp
 .content/
+
+# Generated files (created during test)
+packages/agent-rdp/src/generated/
+fixtures/

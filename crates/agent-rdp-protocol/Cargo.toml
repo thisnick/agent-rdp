@@ -11,3 +11,7 @@ rust-version.workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+ts-rs = { version = "10", features = ["serde-compat"] }
+
+[dev-dependencies]
+# For fixture generation during tests

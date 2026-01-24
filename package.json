@@ -11,7 +11,10 @@
     "example": "tsx examples/typescript/hello-world.ts",
     "lint": "eslint packages/agent-rdp/src examples",
     "lint:fix": "eslint packages/agent-rdp/src examples --fix",
-    "lint:ps1": "pwsh -NoProfile -File scripts/lint-ps1.ps1"
+    "lint:ps1": "pwsh -NoProfile -File scripts/lint-ps1.ps1",
+    "test": "pnpm run test:codegen && pnpm run test:ps",
+    "test:codegen": "cargo test -p agent-rdp-protocol --lib",
+    "test:ps": "pwsh -NoProfile -File scripts/test-ps-fixtures.ps1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
