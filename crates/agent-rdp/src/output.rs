@@ -222,6 +222,11 @@ impl Output {
             }
         }
 
+        // Add disabled tag if element is not enabled
+        if !element.states.contains(&"enabled".to_string()) {
+            attrs.push("disabled".to_string());
+        }
+
         if !attrs.is_empty() {
             line.push_str(&format!(" [{}]", attrs.join(", ")));
         }
