@@ -89,8 +89,8 @@ pub struct ConnectArgs {
     #[arg(long, env = "AGENT_RDP_HOST", required = true)]
     pub host: String,
 
-    /// Server port
-    #[arg(long, default_value = "3389")]
+    /// Server port (or set AGENT_RDP_PORT)
+    #[arg(long, default_value = "3389", env = "AGENT_RDP_PORT")]
     pub port: u16,
 
     /// Username (or set AGENT_RDP_USERNAME)

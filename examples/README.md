@@ -66,9 +66,4 @@ Browser-based viewer for debugging and interactive control.
 - Keyboard input (typing, special keys)
 - Fullscreen mode
 
-**Configuration via environment:**
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_RDP_STREAM_PORT` | 0 (disabled) | WebSocket server port |
-| `AGENT_RDP_STREAM_FPS` | 10 | Frame rate |
-| `AGENT_RDP_STREAM_QUALITY` | 80 | JPEG quality (0-100) |
+**Enable streaming:** Use `--stream-port` flag when connecting (e.g., `agent-rdp --stream-port 9224 connect ...`).

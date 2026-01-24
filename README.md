@@ -310,12 +310,12 @@ agent-rdp --json screenshot --base64
 
 | Variable | Description |
 |----------|-------------|
-| `AGENT_RDP_SESSION` | Session name (default: "default") |
+| `AGENT_RDP_HOST` | RDP server hostname or IP |
+| `AGENT_RDP_PORT` | RDP server port (default: 3389) |
 | `AGENT_RDP_USERNAME` | RDP username |
 | `AGENT_RDP_PASSWORD` | RDP password |
+| `AGENT_RDP_SESSION` | Session name (default: "default") |
 | `AGENT_RDP_STREAM_PORT` | WebSocket streaming port (0 = disabled) |
-| `AGENT_RDP_STREAM_FPS` | Frame rate for streaming (default: 10) |
-| `AGENT_RDP_STREAM_QUALITY` | JPEG quality 0-100 (default: 80) |
 
 ## Node.js API
 
