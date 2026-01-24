@@ -222,8 +222,25 @@ impl Output {
             }
         }
 
-        // Add disabled tag if element is not enabled
-        if !element.states.contains(&"enabled".to_string()) {
+        // Add disabled tag if element is interactive but not enabled
+        // Interactive = focusable OR has interactive patterns
+        let interactive_patterns = [
+            "invoke",
+            "value",
+            "toggle",
+            "selectionitem",
+            "expandcollapse",
+            "rangevalue",
+            "scroll",
+        ];
+        let is_focusable = element.states.contains(&"focusable".to_string());
+        let has_interactive_pattern = element
+            .patterns
+            .iter()
+            .any(|p| interactive_patterns.contains(&p.as_str()));
+        let is_interactive = is_focusable || has_interactive_pattern;
+
+        if is_interactive && !element.states.contains(&"enabled".to_string()) {
             attrs.push("disabled".to_string());
         }
 
