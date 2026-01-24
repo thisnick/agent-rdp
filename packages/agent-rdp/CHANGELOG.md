@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.5.3...agent-rdp-v1.0.0) (2026-01-24)
+
+
+### Maintenance
+
+* **agent-rdp:** Synchronize agent-rdp packages versions
+
 ## [0.5.3](https://github.com/thisnick/agent-rdp/compare/agent-rdp-v0.5.2...agent-rdp-v0.5.3) (2026-01-24)
 
 
