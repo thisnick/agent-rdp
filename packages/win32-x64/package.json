@@ -1,6 +1,6 @@
 {
   "name": "@agent-rdp/win32-x64",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "agent-rdp native binary for Windows x64",
   "repository": {
     "type": "git",
