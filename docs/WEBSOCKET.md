@@ -19,14 +19,6 @@ Start a session with the `--stream-port` flag:
 agent-rdp --stream-port 9224 connect --host 192.168.1.100 -u Admin -p secret
 ```
 
-Or use environment variables:
-
-```bash
-export AGENT_RDP_STREAM_PORT=9224
-export AGENT_RDP_STREAM_FPS=10
-export AGENT_RDP_STREAM_QUALITY=80
-```
-
 ### Accessing the Viewer
 
 The daemon serves both the WebSocket API and an embedded HTML viewer on the same port:
@@ -41,14 +33,6 @@ You can also use the CLI to open the viewer in your browser:
 ```bash
 agent-rdp view --port 9224
 ```
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_RDP_STREAM_PORT` | 0 (disabled) | WebSocket server port |
-| `AGENT_RDP_STREAM_FPS` | 10 | Frame broadcast rate (frames per second) |
-| `AGENT_RDP_STREAM_QUALITY` | 80 | JPEG compression quality (0-100) |
 
 ## Message Types
 

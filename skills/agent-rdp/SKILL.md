@@ -274,10 +274,12 @@ agent-rdp automate click "#1"             # Click Save button
 ## Environment variables
 
 ```bash
+export AGENT_RDP_HOST=192.168.1.100
+export AGENT_RDP_PORT=3389
 export AGENT_RDP_USERNAME=Administrator
 export AGENT_RDP_PASSWORD=secret
 export AGENT_RDP_SESSION=default
-agent-rdp connect --host 192.168.1.100    # Uses env vars for credentials
+agent-rdp connect    # Uses env vars for connection
 ```
 
 ## Debugging with WebSocket streaming
