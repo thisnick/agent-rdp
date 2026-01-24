@@ -187,12 +187,12 @@ jobs:
       - name: Verify generated fixtures are fresh
         if: steps.filter.outputs.schema == 'true'
         run: |
-          if git diff --quiet test/fixtures/; then
+          if git diff --quiet fixtures/; then
             echo "Generated fixtures are up-to-date"
           else
             echo "ERROR: Generated fixtures are out of date!"
             echo "Please run 'cargo test -p agent-rdp-protocol generate' and commit the changes"
-            git diff test/fixtures/
+            git diff fixtures/
             exit 1
           fi
 
