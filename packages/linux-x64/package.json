@@ -16,7 +16,8 @@
   ],
   "files": [
     "bin",
-    "models"
+    "models",
+    "README.md"
   ],
   "scripts": {
     "postinstall": "chmod +x bin/agent-rdp 2>/dev/null || true"

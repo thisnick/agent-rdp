@@ -179,7 +179,7 @@ On the remote Windows machine, mapped drives appear in File Explorer as network 
 
 Interact with Windows applications programmatically via the Windows UI Automation API using native patterns (InvokePattern, SelectionItemPattern, TogglePattern, etc.). When enabled, a PowerShell agent is injected into the remote session that captures the accessibility tree and performs actions. Communication between the CLI and the agent uses a Dynamic Virtual Channel (DVC) for fast bidirectional IPC.
 
-For detailed documentation, see [docs/AUTOMATION.md](docs/AUTOMATION.md).
+For detailed documentation, see [AUTOMATION.md](https://github.com/thisnick/agent-rdp/blob/main/docs/AUTOMATION.md).
 
 ```bash
 # Connect with automation enabled
@@ -412,7 +412,7 @@ await rdp.connect({...});
 const streamUrl = rdp.getStreamUrl(); // "ws://localhost:9224"
 ```
 
-For the complete WebSocket protocol specification (message types, clipboard flow, input handling), see [docs/WEBSOCKET.md](docs/WEBSOCKET.md).
+For the complete WebSocket protocol specification (message types, clipboard flow, input handling), see [WEBSOCKET.md](https://github.com/thisnick/agent-rdp/blob/main/docs/WEBSOCKET.md).
 
 ## Architecture
 
