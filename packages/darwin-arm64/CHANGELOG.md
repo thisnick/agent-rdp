@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.3](https://github.com/thisnick/agent-rdp/compare/darwin-arm64-v0.6.2...darwin-arm64-v0.6.3) (2026-01-28)
+
+
+### Bug Fixes
+
+* add README files to platform packages and fix relative refs in main README ([#65](https://github.com/thisnick/agent-rdp/issues/65)) ([86390fd](https://github.com/thisnick/agent-rdp/commit/86390fdd87b44a1418693ff46dfd32e1c8d3a211))
+
 ## [0.6.2](https://github.com/thisnick/agent-rdp/compare/darwin-arm64-v0.6.1...darwin-arm64-v0.6.2) (2026-01-24)
 
 
