@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.4](https://github.com/thisnick/agent-rdp/compare/agent-rdp-rust-v0.6.3...agent-rdp-rust-v0.6.4) (2026-02-26)
+
+
+### Bug Fixes
+
+* use cross for Linux builds to target glibc 2.31 for broad compatibility ([#67](https://github.com/thisnick/agent-rdp/issues/67)) ([71afadc](https://github.com/thisnick/agent-rdp/commit/71afadc5715861ae15a9e963c9bd01346cbec7ba))
+
 ## [0.6.3](https://github.com/thisnick/agent-rdp/compare/agent-rdp-rust-v0.6.2...agent-rdp-rust-v0.6.3) (2026-01-28)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.4](https://github.com/thisnick/agent-rdp/compare/darwin-x64-v0.6.3...darwin-x64-v0.6.4) (2026-02-26)
+
+
+### Miscellaneous Chores
+
+* **darwin-x64:** Synchronize agent-rdp packages versions
+
 ## [0.6.3](https://github.com/thisnick/agent-rdp/compare/darwin-x64-v0.6.2...darwin-x64-v0.6.3) (2026-01-28)
 
 
