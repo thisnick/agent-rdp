@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.5](https://github.com/thisnick/agent-rdp/compare/linux-arm64-v0.6.4...linux-arm64-v0.6.5) (2026-02-26)
+
+
+### Miscellaneous Chores
+
+* **linux-arm64:** Synchronize agent-rdp packages versions
+
 ## [0.6.4](https://github.com/thisnick/agent-rdp/compare/linux-arm64-v0.6.3...linux-arm64-v0.6.4) (2026-02-26)
 
 

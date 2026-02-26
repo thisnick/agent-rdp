@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.5](https://github.com/thisnick/agent-rdp/compare/agent-rdp-rust-v0.6.4...agent-rdp-rust-v0.6.5) (2026-02-26)
+
+
+### Bug Fixes
+
+* build Linux binaries in ubuntu:22.04 container for glibc 2.35 compatibility ([#70](https://github.com/thisnick/agent-rdp/issues/70)) ([0672991](https://github.com/thisnick/agent-rdp/commit/067299131f1df768215623c526cbedb98c2e14d9))
+
 ## [0.6.4](https://github.com/thisnick/agent-rdp/compare/agent-rdp-rust-v0.6.3...agent-rdp-rust-v0.6.4) (2026-02-26)
 
 
