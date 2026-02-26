@@ -68,7 +68,20 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      # Use cross for Linux builds to target older glibc (2.31) for broad compatibility.
+      # Without this, ubuntu-latest (24.04) produces binaries requiring glibc 2.39+.
+      - name: Install cross
+        if: contains(matrix.target, 'linux')
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Build (Linux)
+        if: contains(matrix.target, 'linux')
+        run: cross build --release --target ${{ matrix.target }}
+
       - name: Build
+        if: ${{ !contains(matrix.target, 'linux') }}
         env:
           RUSTFLAGS: ${{ matrix.rustflags }}
         run: cargo build --release --target ${{ matrix.target }}
