@@ -31,6 +31,57 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+  # Linux builds run in an ubuntu:22.04 container (glibc 2.35) for broad compatibility.
+  # Without this, ubuntu-latest (24.04) produces binaries requiring glibc 2.39+.
+  build-linux:
+    needs: release-please
+    if: ${{ always() && (needs.release-please.outputs.releases_created == 'true' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')) }}
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            package: linux-x64
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            package: linux-arm64
+
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ubuntu:22.04
+
+    steps:
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y curl build-essential pkg-config cmake
+
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Build
+        run: |
+          . "$HOME/.cargo/env"
+          cargo build --release --target ${{ matrix.target }}
+
+      - name: Copy binary and models to package
+        run: |
+          mkdir -p packages/${{ matrix.package }}/bin
+          mkdir -p packages/${{ matrix.package }}/models
+          cp target/${{ matrix.target }}/release/agent-rdp packages/${{ matrix.package }}/bin/
+          chmod +x packages/${{ matrix.package }}/bin/agent-rdp
+          cp models/*.rten packages/${{ matrix.package }}/models/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.package }}
+          path: packages/${{ matrix.package }}/
+
   build:
     needs: release-please
     if: ${{ always() && (needs.release-please.outputs.releases_created || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')) }}
@@ -43,12 +94,6 @@ jobs:
           - os: macos-latest
             target: x86_64-apple-darwin
             package: darwin-x64
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            package: linux-x64
-          - os: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-gnu
-            package: linux-arm64
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             package: win32-x64
@@ -68,20 +113,7 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      # Use cross for Linux builds to target older glibc (2.31) for broad compatibility.
-      # Without this, ubuntu-latest (24.04) produces binaries requiring glibc 2.39+.
-      - name: Install cross
-        if: contains(matrix.target, 'linux')
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cross
-
-      - name: Build (Linux)
-        if: contains(matrix.target, 'linux')
-        run: cross build --release --target ${{ matrix.target }}
-
       - name: Build
-        if: ${{ !contains(matrix.target, 'linux') }}
         env:
           RUSTFLAGS: ${{ matrix.rustflags }}
         run: cargo build --release --target ${{ matrix.target }}
@@ -110,8 +142,8 @@ jobs:
           path: packages/${{ matrix.package }}/
 
   publish:
-    needs: [release-please, build]
-    if: ${{ always() && needs.build.result == 'success' }}
+    needs: [release-please, build, build-linux]
+    if: ${{ always() && needs.build.result == 'success' && needs.build-linux.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
