@@ -106,13 +106,23 @@ impl AutomationBootstrap {
 
         debug!("PowerShell command: {}", ps_command);
 
+        // Set the command in clipboard first (paste is more reliable than typing
+        // long commands character-by-character into the Run dialog)
+        rdp.clipboard_set(ps_command).await
+            .map_err(|e| anyhow::anyhow!("Failed to set clipboard: {}", e))?;
+        sleep(Duration::from_millis(300)).await;
+
         // Press Win+R to open Run dialog
         rdp.send_key_press("super+r").await?;
-        sleep(Duration::from_millis(500)).await;
 
-        // Type the PowerShell command
-        rdp.send_text(&ps_command).await?;
-        sleep(Duration::from_millis(200)).await;
+        // Wait long enough for the Run dialog to appear and grab focus.
+        // 500ms is insufficient when foreground apps (Steam, browsers, etc.)
+        // are active — the dialog can take 1-2s to steal focus.
+        sleep(Duration::from_millis(2000)).await;
+
+        // Paste the command from clipboard (avoids character-by-character timing issues)
+        rdp.send_key_press("ctrl+v").await?;
+        sleep(Duration::from_millis(500)).await;
 
         // Press Enter to execute
         rdp.send_key_press("return").await?;
