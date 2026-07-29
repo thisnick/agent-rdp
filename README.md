@@ -65,15 +65,14 @@ echo 'secret' | agent-rdp connect --host 192.168.1.100 --username Administrator 
 ### Take a Screenshot
 
 ```bash
-# Save to file
+# Save to file (default: ./screenshot.png)
 agent-rdp screenshot --output desktop.png
 
-# Output as base64 (for AI agents)
-agent-rdp screenshot --base64
-
-# With JSON output
-agent-rdp --json screenshot --base64
+# JSON metadata (path/width/height — image is always written to disk)
+agent-rdp --json screenshot --output desktop.png
 ```
+
+> Note: the CLI no longer has `screenshot --base64`. For agent pipelines, write a file and encode it yourself, or use the Node.js API (`rdp.screenshot()`), which still returns `{ base64, width, height }`.
 
 ### Mouse Operations
 
@@ -278,7 +277,7 @@ agent-rdp view
 All commands support `--json` for structured output:
 
 ```bash
-agent-rdp --json screenshot --base64
+agent-rdp --json screenshot --output desktop.png
 ```
 
 **Success response:**
@@ -287,10 +286,9 @@ agent-rdp --json screenshot --base64
   "success": true,
   "data": {
     "type": "screenshot",
+    "path": "desktop.png",
     "width": 1920,
-    "height": 1080,
-    "format": "png",
-    "base64": "iVBORw0KGgo..."
+    "height": 1080
   }
 }
 ```

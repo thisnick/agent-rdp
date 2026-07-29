@@ -60,6 +60,6 @@ SCREENSHOT_PATH="/tmp/drives-screenshot.png"
 if $AGENT_RDP screenshot --output "$SCREENSHOT_PATH"; then
     echo "Done! Screenshot saved to $SCREENSHOT_PATH"
 else
-    echo "Screenshot failed. Trying with base64 output..."
-    $AGENT_RDP screenshot --base64
+    echo "Screenshot failed."
+    exit 1
 fi
