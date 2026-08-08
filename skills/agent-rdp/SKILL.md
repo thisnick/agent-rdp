@@ -1,339 +1,488 @@
 ---
 name: agent-rdp
-description: Controls Windows Remote Desktop sessions for automation, testing, and remote administration. Use when the user needs to connect to Windows machines via RDP, take screenshots, click, type, or interact with remote Windows desktops.
-allowed-tools: Bash(agent-rdp:*)
+description: Control Windows Remote Desktop sessions from Windows 11 or Ubuntu with tested screenshots, OCR, mouse, keyboard, clipboard, drive mapping, session management, web viewing, WebSocket streaming, and the Node API. Use for remote Windows operation, testing, and administration through agent-rdp.
 ---
 
-# Windows Remote Desktop Control with agent-rdp
+<!-- Version: 1 -->
+<!-- Date: 2026-08-08T01:01:56Z -->
+<!-- Author: luckygreen (with assistance by 5.6 Sol High) -->
+<!-- Purpose: Provide an OS-neutral, path-neutral, and harness-neutral agent-rdp skill. -->
+<!-- Usage: Loaded from any supported skill directory by an agent harness that implements SKILL.md discovery. -->
 
-## Quick start
+# agent-rdp
+
+## Validation Boundary
+
+### Tested Release
+
+Use this workflow with npm package `agent-rdp` 0.6.5. The upstream source used for comparison was commit `e4c45f9c4ec2a01694c148fd51d358d7277ad42a`.
+
+### Tested Controllers
+
+The native Windows controller was Windows 11 Pro 24H2, 64-bit, OS build `26100.8875`, running PowerShell 7.
+
+The Linux controller was Ubuntu 24.04.4 LTS, Noble Numbat, running as the `Ubuntu-24.04` WSL 2 distribution. The WSL release was `2.7.11.0`. The Linux kernel was `6.18.33.2-microsoft-standard-WSL2`.
+
+Both controllers ran `agent-rdp` 0.6.5 installed globally through npm.
+
+### Tested Target
+
+The target was `NUC-B14`, Windows 11 Pro 24H2, 64-bit, OS build `26100.8655`, registry `CurrentBuildNumber` `26100`, registry `UBR` `8655`, and `BuildLabEx` `26100.1.amd64fre.ge_release.240331-1435`.
+
+### Passed-Only Scope
+
+Use only the surfaces documented below. Every operative surface passed on the tested environment.
+
+# Resolve Runtime Paths
+
+## Windows 11 PowerShell 7
+
+Resolve each executable to an absolute path before use.
+
+```powershell
+$AgentRdp = (Get-Command agent-rdp -ErrorAction Stop).Source
+$Node = (Get-Command node -ErrorAction Stop).Source
+$Npm = (Get-Command npm -ErrorAction Stop).Source
+$EvidenceRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'agent-rdp-operator'
+$BeforePng = Join-Path $EvidenceRoot 'before.png'
+$AfterPng = Join-Path $EvidenceRoot 'after.png'
+$ScreenPng = Join-Path $EvidenceRoot 'screen.png'
+$FinalPng = Join-Path $EvidenceRoot 'final.png'
+$SharePath = Join-Path $EvidenceRoot 'share'
+
+New-Item -ItemType Directory -Force -Path $EvidenceRoot | Out-Null
+
+if (-not [System.IO.Path]::IsPathFullyQualified($AgentRdp)) { throw 'agent-rdp path is not absolute' }
+
+function agent_rdp {
+    & $AgentRdp @args
+    if ($LASTEXITCODE -ne 0) { throw "agent-rdp failed with exit code $LASTEXITCODE" }
+}
+```
+
+## Ubuntu Bash
+
+Resolve each executable to an absolute path before use.
 
 ```bash
-agent-rdp connect --host <ip> -u <user> -p <pass> --enable-win-automation
-agent-rdp automate snapshot -i              # See interactive elements
-agent-rdp automate click "@e5"              # Click button by ref
-agent-rdp automate fill "@e7" "Hello"       # Type into field
-agent-rdp disconnect
+AGENT_RDP="$(command -v agent-rdp)"
+NODE="$(command -v node)"
+NPM="$(command -v npm)"
+MKTEMP="$(command -v mktemp)"
+EVIDENCE_ROOT="$("${MKTEMP}" -d)"
+BEFORE_PNG="${EVIDENCE_ROOT}/before.png"
+AFTER_PNG="${EVIDENCE_ROOT}/after.png"
+SCREEN_PNG="${EVIDENCE_ROOT}/screen.png"
+FINAL_PNG="${EVIDENCE_ROOT}/final.png"
+SHARE_PATH="${EVIDENCE_ROOT}/share"
+
+case "${AGENT_RDP}" in
+    /*) ;;
+    *) printf '%s\n' 'agent-rdp path is not absolute' >&2; exit 1 ;;
+esac
+
+test -x "${AGENT_RDP}"
+
+agent_rdp() {
+    "${AGENT_RDP}" "$@"
+}
 ```
 
-## Core workflow
+# Core Operator Sequence
 
-1. Connect with automation: `agent-rdp connect --host <ip> -u <user> -p <pass> --enable-win-automation`
-2. Snapshot: `agent-rdp automate snapshot -i` (get accessibility tree with refs)
-3. Act: `agent-rdp automate click @e5` or `agent-rdp automate fill @e7 "text"`
-4. Repeat: snapshot → act → snapshot → act...
+## Connect a Named Session
 
-## Troubleshooting
+### Windows 11 PowerShell 7
 
-### Element not in snapshot with `-i`
+```powershell
+$env:AGENT_RDP_HOST = '192.0.2.10'
+$env:AGENT_RDP_PORT = '3389'
+$env:AGENT_RDP_USERNAME = 'Work'
+$env:AGENT_RDP_PASSWORD = $Password
+$env:AGENT_RDP_SESSION = 'operator'
+agent_rdp connect --width 1280 --height 800 --json
+```
 
-Try without `-i` flag - some elements aren't marked as interactive but are still actionable:
+### Ubuntu Bash
+
 ```bash
-agent-rdp automate snapshot              # Full tree, no filtering
-agent-rdp automate snapshot -d 5         # Limit depth if too large
+export AGENT_RDP_HOST='192.0.2.10'
+export AGENT_RDP_PORT='3389'
+export AGENT_RDP_USERNAME='Work'
+export AGENT_RDP_PASSWORD="${PASSWORD}"
+export AGENT_RDP_SESSION='operator'
+agent_rdp connect --width 1280 --height 800 --json
 ```
 
-### Element not in accessibility tree at all
+The CLI also passed with `--host`, `--username`, and `--password-stdin`. Do not place credentials directly in command arguments.
 
-Some UI elements (WebView content, certain dialogs, toast notifications) don't appear in the accessibility tree. Use OCR as a last resort:
+## Stabilize the Desktop
 
-1. Take screenshot to identify what you need: `agent-rdp screenshot -o screen.png`
-2. Use locate to find coordinates: `agent-rdp locate "Button Text"`
-3. Click using returned coordinates: `agent-rdp mouse click <x> <y>`
+Wait five seconds after connection before the first input. Immediate input was ignored on the tested target. Input after this wait passed.
 
-## Commands
+```text
+agent_rdp --session operator wait 5000 --json
+```
 
-### Connection
+## Observe Before Acting
+
+### Windows 11 PowerShell 7
+
+```powershell
+agent_rdp --session operator screenshot --output $BeforePng --format png --json
+if (-not (Test-Path -LiteralPath $BeforePng -PathType Leaf)) { throw 'Screenshot missing' }
+```
+
+### Ubuntu Bash
+
 ```bash
-agent-rdp connect --host 192.168.1.100 -u Admin -p secret
-agent-rdp connect --host 192.168.1.100 -u Admin --password-stdin  # Read password from stdin
-agent-rdp connect --host 192.168.1.100 --width 1920 --height 1080
-agent-rdp connect --host 192.168.1.100 --drive /tmp/share:Share   # Map local directory
-agent-rdp disconnect
+agent_rdp --session operator screenshot --output "${BEFORE_PNG}" --format png --json
+test -s "${BEFORE_PNG}"
 ```
 
-### Screenshot
+## Act Through OCR or Verified Coordinates
+
+```text
+agent_rdp --session operator locate 'Save' --json
+agent_rdp --session operator mouse click 672 427 --json
+```
+
+Use coordinates from a current OCR result, current screenshot, or already validated layout.
+
+## Verify After Acting
+
+```powershell
+agent_rdp --session operator screenshot --output $AfterPng --format png --json
+agent_rdp --session operator locate --all --json
+```
+
 ```bash
-agent-rdp screenshot                      # Save to ./screenshot.png
-agent-rdp screenshot -o desktop.png       # Save to specific file
-agent-rdp screenshot --format jpeg        # JPEG format
+agent_rdp --session operator screenshot --output "${AFTER_PNG}" --format png --json
+agent_rdp --session operator locate --all --json
 ```
 
-### Mouse
+## Disconnect and Confirm Cleanup
+
+```powershell
+agent_rdp --session operator disconnect --json
+agent_rdp session list --json
+Remove-Item Env:AGENT_RDP_PASSWORD -ErrorAction SilentlyContinue
+```
+
 ```bash
-agent-rdp mouse click 500 300             # Left click at (500, 300)
-agent-rdp mouse right-click 500 300       # Right click
-agent-rdp mouse double-click 500 300      # Double click
-agent-rdp mouse move 100 200              # Move cursor
-agent-rdp mouse drag 100 100 500 500      # Drag from (100,100) to (500,500)
+agent_rdp --session operator disconnect --json
+agent_rdp session list --json
+unset AGENT_RDP_PASSWORD
 ```
 
-### Keyboard
+# Session Management
+
+## List Sessions
+
+```text
+agent_rdp session list --json
+```
+
+## Inspect a Named Session
+
+```text
+agent_rdp --session operator session info --json
+```
+
+## Disconnect a Named Session
+
+```text
+agent_rdp --session operator disconnect --json
+```
+
+# Screenshots
+
+## Save a PNG
+
+```powershell
+agent_rdp --session operator screenshot --output $ScreenPng --format png --json
+```
+
 ```bash
-agent-rdp keyboard type "Hello World"     # Type text (supports Unicode)
-agent-rdp keyboard press "ctrl+c"         # Key combination
-agent-rdp keyboard press "alt+tab"        # Switch windows
-agent-rdp keyboard press "ctrl+shift+esc" # Task manager
-agent-rdp keyboard press "win+r"          # Run dialog
-agent-rdp keyboard press enter            # Single key (use press, not key)
-agent-rdp keyboard press escape
-agent-rdp keyboard press f5
+agent_rdp --session operator screenshot --output "${SCREEN_PNG}" --format png --json
 ```
 
-### Scroll
-```bash
-agent-rdp scroll up --amount 3            # Scroll up 3 notches
-agent-rdp scroll down --amount 5          # Scroll down 5 notches
-agent-rdp scroll left
-agent-rdp scroll right
+The tested output was a 1280 by 800 RGBA PNG. Verify that the file exists, is nonempty, and is current before using it as evidence.
+
+# Mouse
+
+## Click, Move, and Drag
+
+```text
+agent_rdp --session operator mouse click 500 300 --json
+agent_rdp --session operator mouse right-click 500 300 --json
+agent_rdp --session operator mouse double-click 500 300 --json
+agent_rdp --session operator mouse move 100 200 --json
+agent_rdp --session operator mouse drag 100 100 500 500 --json
 ```
 
-### Clipboard
-```bash
-agent-rdp clipboard set "Text to paste"   # Set clipboard (paste on Windows)
-agent-rdp clipboard get                   # Get clipboard (after copy on Windows)
+# Keyboard
+
+## Type Unicode Text
+
+```text
+agent_rdp --session operator keyboard type 'Grüße 你好' --json
 ```
 
-### Drive mapping
-```bash
-# Map at connect time
-agent-rdp connect --host <ip> -u <user> -p <pass> --drive /local/path:DriveName
+## Press Keys and Combinations
 
-# List mapped drives
-agent-rdp drive list
+```text
+agent_rdp --session operator keyboard press enter --json
+agent_rdp --session operator keyboard press escape --json
+agent_rdp --session operator keyboard press 'ctrl+c' --json
+agent_rdp --session operator keyboard press 'ctrl+shift+esc' --json
+agent_rdp --session operator keyboard press 'win+r' --json
+agent_rdp --session operator keyboard press 'alt+f4' --json
 ```
 
-### Session management
-```bash
-agent-rdp session list                    # List active sessions
-agent-rdp session info                    # Current session info
-agent-rdp --session work connect ...      # Named session
-agent-rdp --session work screenshot       # Use named session
-```
+## Preserve Text as One Argument
 
-### Wait
-```bash
-agent-rdp wait 2000                       # Wait 2 seconds
-```
-
-### Locate (OCR)
-```bash
-agent-rdp locate "Cancel"                 # Find lines containing "Cancel"
-agent-rdp locate "Save*" --pattern        # Glob pattern matching
-agent-rdp locate --all                    # Get all text on screen
-agent-rdp locate "OK" --json              # JSON output with coordinates
-```
-
-Returns text lines with bounding boxes and center coordinates for clicking:
-```
-Found 1 line(s) containing 'Cancel':
-  'Cancel' at (650, 420) size 45x14 - center: (672, 427)
-
-To click the first match: agent-rdp mouse click 672 427
-```
-
-### UI Automation
-```bash
-# Connect with automation enabled
-agent-rdp connect --host 192.168.1.100 -u Admin -p secret --enable-win-automation
-
-# Snapshot - get accessibility tree (refs always included)
-agent-rdp automate snapshot                # Full desktop tree
-agent-rdp automate snapshot -i             # Interactive elements only
-agent-rdp automate snapshot -c             # Compact (remove empty elements)
-agent-rdp automate snapshot -d 5           # Limit depth to 5 levels
-agent-rdp automate snapshot -s "~*Notepad*"# Scope to a window/element
-agent-rdp automate snapshot -f             # Start from focused element
-agent-rdp automate snapshot -i -c -d 3     # Combine options
-
-# Pattern-based element operations (use selectors: @eN, #automationId, .className, or name)
-agent-rdp automate click "#SaveButton"    # Click button
-agent-rdp automate click "@e5"            # Click by ref number
-agent-rdp automate click "@e5" -d         # Double-click (for file list items)
-agent-rdp automate select "@e10"          # Select item (SelectionItemPattern)
-agent-rdp automate select "@e5" --item "Option 1"  # Select item by name in container
-agent-rdp automate toggle "@e7"           # Toggle checkbox (TogglePattern)
-agent-rdp automate toggle "@e7" --state on  # Set specific state
-agent-rdp automate expand "@e3"           # Expand menu/tree (ExpandCollapsePattern)
-agent-rdp automate collapse "@e3"         # Collapse menu/tree
-agent-rdp automate context-menu "@e5"     # Open context menu (Shift+F10)
-agent-rdp automate focus <selector>       # Focus element
-agent-rdp automate get <selector>         # Get element properties
-
-# Text input
-agent-rdp automate fill <selector> "text" # Clear and fill text (ValuePattern)
-agent-rdp automate clear <selector>       # Just clear
+Text containing shell metacharacters must reach `agent-rdp` as one argument. When PowerShell launches WSL, PowerShell quoting and Bash quoting both apply. Verify the resulting target text before proceeding.
 
 # Scrolling
-agent-rdp automate scroll <selector> --direction down --amount 3
 
-# Window operations
-agent-rdp automate window list
-agent-rdp automate window focus "~*Notepad*"
-agent-rdp automate window maximize
-agent-rdp automate window minimize
-agent-rdp automate window restore
-agent-rdp automate window close "~*Notepad*"
+## Use a Positional Amount
 
-# Run commands/apps (best way to open apps)
-agent-rdp automate run "notepad.exe"                                        # Open Notepad
-agent-rdp automate run "Start-Process ms-settings:" --wait                  # Open Settings
-agent-rdp automate run "calc.exe"                                           # Open Calculator
-agent-rdp automate run "Get-Process" --wait --process-timeout 5000          # With 5s timeout
+The scroll amount is positional in 0.6.5.
 
-# Wait for element
-agent-rdp automate wait-for <selector> --timeout 5000
-agent-rdp automate wait-for <selector> --state visible
-
-# Status
-agent-rdp automate status
+```text
+agent_rdp --session operator scroll up 5 --at 600 400 --json
+agent_rdp --session operator scroll down 5 --at 600 400 --json
+agent_rdp --session operator scroll left 5 --at 600 400 --json
+agent_rdp --session operator scroll right 5 --at 600 400 --json
 ```
 
-**Selector syntax:**
-- `@e5` or `@5` - Reference number from snapshot (e prefix recommended)
-- `#SaveButton` - Automation ID
-- `.Edit` - Win32 class name
-- `~*pattern*` - Name with wildcard
-- `File` - Element name (exact match)
+# OCR
 
-**Snapshot output format:**
-```
-- Window "Notepad" [ref=e1, id=Notepad]
-  - MenuBar "Application" [ref=e2]
-    - MenuItem "File" [ref=e3]
-  - Edit "Text Editor" [ref=e5, value="Hello"]
+## Exact Text, Pattern, and Full Screen
+
+```text
+agent_rdp --session operator locate 'ProductName' --json
+agent_rdp --session operator locate 'Windows*' --pattern --json
+agent_rdp --session operator locate --all --json
 ```
 
-## JSON output
+Use returned bounding boxes and center coordinates. Recheck the screen immediately before clicking.
 
-Add `--json` for machine-readable output:
-```bash
-agent-rdp --json clipboard get
-agent-rdp --json session info
-agent-rdp --json automate snapshot
+# Clipboard
+
+## Set, Paste, and Get
+
+```text
+agent_rdp --session operator clipboard set 'CLIPBOARD-PASS' --json
+agent_rdp --session operator keyboard press 'ctrl+v' --json
+agent_rdp --session operator clipboard get --json
 ```
 
-## Example: Open PowerShell and run command
+Clipboard set, paste, and get passed after the remote clipboard initialized. Bound a previously blocking retrieval with the native shell timeout mechanism, disconnect the exact named session, reconnect, wait five seconds, and initialize the remote clipboard before retrying.
 
-```bash
-agent-rdp connect --host 192.168.1.100 -u Admin -p secret
-agent-rdp wait 3000                       # Wait for desktop
-agent-rdp keyboard press "win+r"          # Open Run dialog
-agent-rdp wait 1000
-agent-rdp keyboard type "powershell"
-agent-rdp keyboard press enter
-agent-rdp wait 2000                       # Wait for PowerShell
-agent-rdp keyboard type "Get-Process"
-agent-rdp keyboard press enter
-agent-rdp screenshot --output result.png
-agent-rdp disconnect
+# Drive Mapping
+
+## Map During Connection
+
+### Windows 11 PowerShell 7
+
+```powershell
+New-Item -ItemType Directory -Force -Path $SharePath | Out-Null
+$env:AGENT_RDP_PASSWORD = $Password
+agent_rdp --session operator connect --host 192.0.2.10 --username Work --width 1280 --height 800 --drive "${SharePath}:OperatorShare" --json
 ```
 
-## Example: File transfer via mapped drive
+### Ubuntu Bash
 
 ```bash
-# Connect with local directory mapped
-agent-rdp connect --host 192.168.1.100 -u Admin -p secret --drive /tmp/transfer:Transfer
-
-# On Windows, access files at \\tsclient\Transfer
-agent-rdp keyboard press "win+r"
-agent-rdp wait 500
-agent-rdp keyboard type "\\\\tsclient\\Transfer"
-agent-rdp keyboard press enter
+mkdir -p "${SHARE_PATH}"
+export AGENT_RDP_PASSWORD="${PASSWORD}"
+agent_rdp --session operator connect --host 192.0.2.10 --username Work --width 1280 --height 800 --drive "${SHARE_PATH}:OperatorShare" --json
 ```
 
-## Example: Automate Notepad with UI Automation
+## List Mapped Drives
+
+```text
+agent_rdp --session operator drive list --json
+```
+
+The tested Windows UNC path was `\\tsclient\OperatorShare`. A remote file created below that path appeared in the mapped controller directory.
+
+# Web Viewer
+
+## Start Streaming
+
+Place `--stream-port` before the `connect` subcommand.
+
+```powershell
+$env:AGENT_RDP_PASSWORD = $Password
+agent_rdp --session operator --stream-port 19224 connect --host 192.0.2.10 --username Work --width 1280 --height 800 --json
+agent_rdp --session operator view --port 19224 --json
+```
 
 ```bash
-# Connect with automation enabled
-agent-rdp connect --host 192.168.1.100 -u Admin -p secret --enable-win-automation
-
-# Open Notepad
-agent-rdp automate run "notepad.exe"
-agent-rdp wait 2000
-
-# Get accessibility snapshot (refs are always included)
-agent-rdp automate snapshot -i            # Interactive elements only
-
-# Type text into the edit control (use ref from snapshot)
-agent-rdp automate fill "@e5" "Hello from automation!"
-
-# Use File menu to save - expand menu, then invoke menu item
-agent-rdp automate expand "File"          # Expand menu (ExpandCollapsePattern)
-agent-rdp wait 500
-agent-rdp automate click "Save As..."     # Click menu item
-
-# Wait for Save dialog
-agent-rdp automate wait-for "#FileNameControlHost" --timeout 5000
-
-# Fill filename and save
-agent-rdp automate fill "#FileNameControlHost" "test.txt"
-agent-rdp automate click "#1"             # Click Save button
+export AGENT_RDP_PASSWORD="${PASSWORD}"
+agent_rdp --session operator --stream-port 19224 connect --host 192.0.2.10 --username Work --width 1280 --height 800 --json
+agent_rdp --session operator view --port 19224 --json
 ```
 
-## Environment variables
+The tested viewer returned HTTP 200 at `http://127.0.0.1:19224/` and reported `http://localhost:19224`.
+
+# WebSocket Protocol
+
+## Endpoint and Frames
+
+Connect to `ws://127.0.0.1:19224` after starting the stream port. The stream sent status messages and repeated frame messages containing base64 encoded JPEG data.
+
+```json
+{"type":"status"}
+```
+
+```json
+{"type":"frame","data":"BASE64_JPEG_DATA"}
+```
+
+## Mouse Input
+
+```json
+{"type":"input_mouse","x":500,"y":300,"button":"left","pressed":true}
+```
+
+```json
+{"type":"input_mouse","x":500,"y":300,"button":"left","pressed":false}
+```
+
+## Keyboard Input
+
+```json
+{"type":"input_keyboard","text":"WS-PASS"}
+```
+
+```json
+{"type":"input_keyboard","key":"Control","pressed":true}
+```
+
+```json
+{"type":"input_keyboard","key":"v","pressed":true}
+```
+
+```json
+{"type":"input_keyboard","key":"v","pressed":false}
+```
+
+```json
+{"type":"input_keyboard","key":"Control","pressed":false}
+```
+
+## Clipboard Input
+
+```json
+{"type":"clipboard_set","text":"WSCLIP-PASS"}
+```
+
+```json
+{"type":"clipboard_get"}
+```
+
+# Node API
+
+## Resolve the Global Package Entry Point
+
+### Windows 11 PowerShell 7
+
+```powershell
+$env:AGENT_RDP_NPM_ROOT = (& $Npm root -g).Trim()
+$env:AGENT_RDP_MODULE_URL = 'file:///' + (($env:AGENT_RDP_NPM_ROOT + '\agent-rdp\dist\index.js') -replace '\\','/')
+```
+
+### Ubuntu Bash
 
 ```bash
-export AGENT_RDP_HOST=192.168.1.100
-export AGENT_RDP_PORT=3389
-export AGENT_RDP_USERNAME=Administrator
-export AGENT_RDP_PASSWORD=secret
-export AGENT_RDP_SESSION=default
-agent-rdp connect    # Uses env vars for connection
+export AGENT_RDP_NPM_ROOT="$("${NPM}" root -g)"
+export AGENT_RDP_MODULE_URL="file://${AGENT_RDP_NPM_ROOT}/agent-rdp/dist/index.js"
 ```
 
-## Debugging with WebSocket streaming
+Resolve the npm global root at runtime so Node upgrades do not hardcode a versioned installation directory.
+
+## Import and Attach to an Existing Session
+
+```javascript
+const { RdpSession } = await import(process.env.AGENT_RDP_MODULE_URL);
+const session = new RdpSession({ session: "operator" });
+const info = await session.getInfo();
+const shot = await session.screenshot({ format: "png" });
+const drives = await session.drives.list();
+const clipboard = await session.clipboard.get();
+const matches = await session.locate("ProductName");
+await session.keyboard.press("win+r");
+await session.keyboard.type("API-PASS");
+await session.mouse.move(500, 300);
+await session.scroll.up(3);
+await session.scroll.down(3);
+const streamUrl = session.getStreamUrl();
+await session.close();
+```
+
+The screenshot result contained PNG data encoded as base64 with width and height. The tested dimensions were 1280 by 800.
+
+## Create and Disconnect a Session
+
+```javascript
+const { RdpSession } = await import(process.env.AGENT_RDP_MODULE_URL);
+const session = new RdpSession({ session: "api-operator" });
+await session.connect({
+  host: "192.0.2.10",
+  username: "Work",
+  password: process.env.AGENT_RDP_PASSWORD,
+  width: 1280,
+  height: 800,
+});
+const info = await session.getInfo();
+const shot = await session.screenshot({ format: "png" });
+const drives = await session.drives.list();
+const streamUrl = session.getStreamUrl();
+await session.disconnect();
+```
+
+After API disconnect, inspect the CLI session list. If the disconnected named session remains, clean it with the tested CLI disconnect command.
+
+# Failure Recovery
+
+## Inspect Before Cleanup
+
+```text
+agent_rdp --session operator session info --json
+agent_rdp session list --json
+```
+
+## Clean Only the Exact Session
+
+```text
+agent_rdp --session operator disconnect --json
+agent_rdp session list --json
+```
+
+Do not terminate unrelated processes. Identify the daemon associated with the exact named session before any process termination.
+
+# Completion Gate
+
+## Windows 11 PowerShell 7
+
+```powershell
+agent_rdp --session operator screenshot --output $FinalPng --format png --json
+if ((Get-Item -LiteralPath $FinalPng).Length -le 0) { throw 'Final screenshot is empty' }
+agent_rdp --session operator disconnect --json
+agent_rdp session list --json
+```
+
+## Ubuntu Bash
 
 ```bash
-# Enable streaming viewer on port 9224
-agent-rdp --stream-port 9224 connect --host 192.168.1.100 -u Admin -p secret
-
-# Open web viewer in browser
-agent-rdp view --port 9224
-
-# Or manually access WebSocket at ws://localhost:9224 (broadcasts JPEG frames)
+agent_rdp --session operator screenshot --output "${FINAL_PNG}" --format png --json
+test -s "${FINAL_PNG}"
+agent_rdp --session operator disconnect --json
+agent_rdp session list --json
 ```
 
-## Tips
-
-**Prefer `automate fill` over `keyboard type`** when automation is enabled—it's lossless (no dropped characters) and faster.
-
-### Opening applications
-
-Use `automate run` to launch apps directly:
-```bash
-agent-rdp automate run "notepad.exe"
-agent-rdp automate run "calc.exe"
-agent-rdp automate run "Start-Process ms-settings:" --wait   # Settings
-agent-rdp automate run "explorer.exe C:\\"                   # File Explorer
-```
-
-## Limitations
-
-**IMPORTANT: Read these limitations carefully before attempting automation tasks.**
-
-### UI Automation cannot access WebViews
-- The Windows Start menu search, Edge browser content, Electron app content, and other WebView-based UIs are NOT accessible via `automate snapshot`.
-- **Workaround**: Use `Win+R` (Run dialog) or `automate run` to launch programs directly instead of navigating through the Start menu.
-
-### UI Automation cannot handle UAC dialogs
-- User Account Control elevation prompts run on a secure desktop isolated from UI Automation.
-- UAC dialogs will NOT appear in `automate snapshot` output.
-- **Workaround**: Use `locate` command (OCR) to find button text and `mouse click` to interact. This is unreliable but may work for simple Yes/No dialogs.
-
-### OCR (`locate`) is not highly reliable
-- The `locate` command uses OCR which can misread characters, miss text entirely, or return imprecise coordinates.
-- Use it as a last resort when UI Automation cannot access elements.
-- Always verify coordinates before clicking critical buttons.
-
-### DO NOT estimate coordinates from screenshots (Claude only)
-- **Claude models in non-computer-use mode (like Claude Code) are very bad at pixel counting.**
-- Do NOT look at a screenshot and try to guess coordinates - the estimates will likely be wrong.
-- **Note**: Gemini models are generally good at pixel coordinate estimation.
-- If you need vision-based coordinate detection with Claude, the user must implement a harness using Claude's [Computer Use Tool](https://docs.anthropic.com/en/docs/agents-and-tools/computer-use).
-
-### Recommended workflow when UI Automation fails
-1. First, always try `automate snapshot` (with and without `-i` flag)
-2. If element not found, try `locate "text"` to find via OCR
-3. Use coordinates from `locate` output with `mouse click`
-4. **Never** estimate coordinates by looking at screenshots
+Completion requires a current final PNG, successful machine readable command results, and an empty or expected session list after disconnect.
