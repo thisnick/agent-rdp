@@ -12,4 +12,4 @@ import type { ScrollRequest } from "./ScrollRequest.js";
 /**
  * A request from the CLI to the daemon.
  */
-export type Request = { "type": "connect" } & ConnectRequest | { "type": "disconnect" } | { "type": "screenshot" } & ScreenshotRequest | { "type": "mouse" } & MouseRequest | { "type": "keyboard" } & KeyboardRequest | { "type": "scroll" } & ScrollRequest | { "type": "clipboard" } & ClipboardRequest | { "type": "drive" } & DriveRequest | { "type": "automate" } & AutomateRequest | { "type": "locate" } & LocateRequest | { "type": "session_info" } | { "type": "ping" } | { "type": "shutdown" };
+export type Request = { "type": "connect" } & ConnectRequest | { "type": "disconnect" } | { "type": "screenshot" } & ScreenshotRequest | { "type": "mouse" } & MouseRequest | { "type": "keyboard" } & KeyboardRequest | { "type": "scroll" } & ScrollRequest | { "type": "clipboard" } & ClipboardRequest | { "type": "drive" } & DriveRequest | { "type": "automate" } & AutomateRequest | { "type": "locate" } & LocateRequest | { "type": "session_info" } | { "type": "audio_attach" } | { "type": "ping" } | { "type": "shutdown" };

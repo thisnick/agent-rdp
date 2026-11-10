@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use agent_rdp_protocol::{ErrorCode, MouseButton, MouseRequest, Response};
-use ironrdp::pdu::input::fast_path::FastPathInputEvent;
-use ironrdp::pdu::input::mouse::{MousePdu, PointerFlags};
+use ironrdp_pdu::input::fast_path::FastPathInputEvent;
+use ironrdp_pdu::input::mouse::{MousePdu, PointerFlags};
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
 use tracing::debug;

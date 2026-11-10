@@ -18,7 +18,11 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 # IronRDP
-ironrdp = { workspace = true }
+ironrdp-connector = { workspace = true }
+ironrdp-session = { workspace = true }
+ironrdp-pdu = { workspace = true }
+ironrdp-input = { workspace = true }
+ironrdp-core = { workspace = true }
 ironrdp-tokio = { workspace = true }
 ironrdp-graphics = { workspace = true }
 ironrdp-cliprdr = { workspace = true }
@@ -26,6 +30,7 @@ ironrdp-cliprdr-native = { workspace = true }
 ironrdp-rdpdr = { workspace = true }
 ironrdp-rdpdr-native = { workspace = true }
 ironrdp-rdpsnd = { workspace = true }
+ironrdp-rdpeai = { workspace = true }
 ironrdp-svc = { workspace = true }
 ironrdp-dvc = { workspace = true }
 

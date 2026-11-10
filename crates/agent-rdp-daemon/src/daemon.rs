@@ -260,6 +260,27 @@ async fn handle_client(
             }
         };
 
+        // An audio stream takes over the connection: one response line, then binary frames.
+        if matches!(request, Request::AudioAttach) {
+            let audio = rdp_session.lock().await.as_ref().map(|rdp| rdp.audio_enabled());
+            let response = match audio {
+                Some(true) => Response::ok(),
+                Some(false) => Response::error(ErrorCode::InvalidRequest, "the session was connected without audio (connect with audio: true)".to_string()),
+                None => Response::error(ErrorCode::NotConnected, "not connected".to_string()),
+            };
+            let attach = response.success;
+            let json = serde_json::to_string(&response)? + "\n";
+            writer.write_all(json.as_bytes()).await?;
+            writer.flush().await?;
+            if attach {
+                info!("Audio client attached");
+                let result = crate::audio::serve(crate::audio::hub(), reader, writer).await;
+                info!("Audio client detached");
+                return result;
+            }
+            continue;
+        }
+
         let is_shutdown = matches!(request, Request::Shutdown);
 
         let response = process_request(
@@ -325,6 +346,9 @@ async fn process_request(
                 uptime_secs: start_time.elapsed().as_secs(),
             }))
         }
+
+        // Handled in handle_client, which hands the connection to the audio stream.
+        Request::AudioAttach => Response::error(ErrorCode::InvalidRequest, "audio_attach is not available here".to_string()),
 
         Request::Shutdown => {
             // Will trigger shutdown after response is sent

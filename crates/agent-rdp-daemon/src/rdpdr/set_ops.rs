@@ -2,7 +2,7 @@
 
 use std::fs;
 
-use ironrdp::pdu::{encode_err, PduResult};
+use ironrdp_pdu::{encode_err, PduResult};
 use ironrdp_rdpdr::pdu::efs::*;
 use ironrdp_rdpdr::pdu::RdpdrPdu;
 use ironrdp_svc::SvcMessage;

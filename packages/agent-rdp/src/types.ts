@@ -77,6 +77,8 @@ export interface ConnectOptions {
   drives?: DriveMapping[];
   /** Enable Windows UI Automation. */
   enableWinAutomation?: boolean;
+  /** Redirect audio to IPC clients that send `audio_attach` (see README, Audio). */
+  audio?: boolean;
 }
 
 /** Result of a successful connection. */

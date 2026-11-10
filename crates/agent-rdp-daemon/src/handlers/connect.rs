@@ -98,6 +98,7 @@ pub async fn handle(
         height: params.height,
         drives,
         automation_dvc_state,
+        audio: params.audio.then(crate::audio::hub),
     };
 
     // Attempt connection
