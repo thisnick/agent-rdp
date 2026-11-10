@@ -3,7 +3,7 @@
 use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom, Write};
 
-use ironrdp::pdu::PduResult;
+use ironrdp_pdu::PduResult;
 use ironrdp_rdpdr::pdu::efs::*;
 use ironrdp_rdpdr::pdu::RdpdrPdu;
 use ironrdp_svc::SvcMessage;

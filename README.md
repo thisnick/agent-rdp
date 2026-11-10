@@ -20,6 +20,7 @@ https://github.com/user-attachments/assets/91892b39-4edb-412b-b265-55ccd75d7421
 - **OCR text location** - Find text on screen using OCR when UI Automation isn't available
 - **JSON output** - Structured output for AI agent consumption
 - **Session management** - Multiple named sessions with automatic daemon lifecycle
+- **Audio** - Stream the remote sound and feed a remote microphone over IPC (no local playback)
 
 ## Installation
 
@@ -414,6 +415,33 @@ const streamUrl = rdp.getStreamUrl(); // "ws://localhost:9224"
 
 For the complete WebSocket protocol specification (message types, clipboard flow, input handling), see [WEBSOCKET.md](https://github.com/thisnick/agent-rdp/blob/main/docs/WEBSOCKET.md).
 
+## Audio (sound and microphone)
+
+Connect with `"audio": true` in the IPC `connect` request and the daemon redirects audio like
+mstsc's "play on this computer" and "record from this computer" - but nothing plays or records
+locally. The remote computer's sound (RDPSND, MS-RDPEA) goes to IPC clients, and the remote
+computer gets a microphone ("Remote Audio", AUDIO_INPUT, MS-RDPEAI) fed by those clients. Nothing
+is installed on the remote side.
+
+A client sends `{"type":"audio_attach"}` on its own IPC connection. After the response line that
+connection carries binary frames both ways: `kind: u8`, `length: u32` (little endian), payload.
+
+| Direction | Kind | Payload |
+|-----------|------|---------|
+| daemon → client | 1 PCM | `rate: u32`, `channels: u16`, `bits: u16` (16), interleaved signed 16-bit LE samples |
+| daemon → client | 2 EVENT | JSON: `mic_open` `{rate, channels}`, `mic_close`, `playing` `{id}`, `played` `{id, stopped}`, `sound_close` |
+| client → daemon | 1 MIC | `id: u32`, `rate: u32`, `channels: u16`, interleaved signed 16-bit LE samples |
+| client → daemon | 2 CMD | JSON: `{"cmd":"stop"}` drops what is queued for the microphone |
+
+The remote side sends sound only while something plays. The microphone runs on the daemon's
+clock: queued chunks are resampled to the format the remote side opened and sent in real time,
+with silence in between. Chunks still run through in real time while no remote application
+records, so `played` follows `playing` after the chunk's duration. Only 16-bit PCM formats are
+negotiated in both directions.
+
+The server must allow audio capture redirection for the microphone. Windows 10/11 Pro allows it by
+default, and RD Session Hosts need the policy "Allow audio recording redirection".
+
 ## Architecture
 
 agent-rdp uses a daemon-per-session architecture:
@@ -452,7 +480,7 @@ If you need vision-based coordinate detection with Claude, implement your own ha
 
 ## Requirements
 
-- Rust 1.75 or later
+- Rust 1.94 or later
 - Target RDP server with Network Level Authentication (NLA) enabled
 
 ## License

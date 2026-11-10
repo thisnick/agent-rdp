@@ -111,6 +111,8 @@ pub fn new_shared_dvc_state() -> SharedDvcState {
 }
 
 /// DVC processor for automation channel.
+impl ironrdp_dvc::DvcClientProcessor for AutomationDvc {}
+
 pub struct AutomationDvc {
     /// Shared state for communication with IPC layer.
     state: SharedDvcState,

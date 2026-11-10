@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::path::PathBuf;
 
-use ironrdp::pdu::PduResult;
+use ironrdp_pdu::PduResult;
 use ironrdp_rdpdr::pdu::efs::*;
 use ironrdp_rdpdr::pdu::esc::{ScardCall, ScardIoCtlCode};
 use ironrdp_rdpdr::pdu::RdpdrPdu;
@@ -115,8 +115,8 @@ impl RdpdrBackend for MultiDriveBackend {
         &mut self,
         _req: DeviceControlRequest<ScardIoCtlCode>,
         _call: ScardCall,
-    ) -> PduResult<()> {
-        Ok(())
+    ) -> PduResult<Vec<SvcMessage>> {
+        Ok(Vec::new())
     }
 
     fn handle_drive_io_request(&mut self, req: ServerDriveIoRequest) -> PduResult<Vec<SvcMessage>> {
@@ -153,6 +153,22 @@ impl RdpdrBackend for MultiDriveBackend {
             ServerDriveIoRequest::ServerDriveLockControlRequest(_) => {
                 // TODO: implement file locking
                 Ok(Vec::new())
+            }
+            ServerDriveIoRequest::DeviceFlushBuffersRequest(req_inner) => Ok(vec![SvcMessage::from(
+                RdpdrPdu::DeviceFlushBuffersResponse(ironrdp_rdpdr::pdu::efs::DeviceFlushBuffersResponse {
+                    device_io_response: DeviceIoResponse::new(req_inner.device_io_request, NtStatus::NOT_SUPPORTED),
+                }),
+            )]),
+            ServerDriveIoRequest::ServerDriveQuerySecurityRequest(req_inner) => Ok(vec![SvcMessage::from(
+                RdpdrPdu::ClientDriveQuerySecurityResponse(ironrdp_rdpdr::pdu::efs::ClientDriveQuerySecurityResponse {
+                    device_io_response: DeviceIoResponse::new(req_inner.device_io_request, NtStatus::NOT_SUPPORTED),
+                    security_descriptor: None,
+                }),
+            )]),
+            ServerDriveIoRequest::ServerDriveSetSecurityRequest(req_inner) => {
+                let response = ironrdp_rdpdr::pdu::efs::ClientDriveSetSecurityResponse::new(&req_inner, NtStatus::NOT_SUPPORTED)
+                    .map_err(|error| ironrdp_pdu::encode_err!(error))?;
+                Ok(vec![SvcMessage::from(RdpdrPdu::ClientDriveSetSecurityResponse(response))])
             }
         }
     }

@@ -57,4 +57,9 @@ stream_quality: number,
  * Serve the embedded HTML viewer on the streaming port (default: false).
  * When false, only WebSocket connections are accepted.
  */
-serve_viewer: boolean, };
+serve_viewer: boolean, 
+/**
+ * Redirect audio: the remote sound is streamed to clients that send `audio_attach`
+ * (nothing plays locally), and the remote side gets a microphone fed by those clients.
+ */
+audio: boolean, };

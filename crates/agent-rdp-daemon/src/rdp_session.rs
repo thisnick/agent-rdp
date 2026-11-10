@@ -11,16 +11,17 @@ use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 
 use agent_rdp_protocol::DriveMapping;
-use ironrdp::connector::{self, ClientConnector, ConnectorResult, Credentials, ServerName};
-use ironrdp::pdu::gcc::KeyboardType;
-use ironrdp::pdu::input::fast_path::FastPathInputEvent;
-use ironrdp::pdu::rdp::capability_sets::MajorPlatformType;
-use ironrdp::pdu::rdp::client_info::PerformanceFlags;
-use ironrdp::session::image::DecodedImage;
-use ironrdp::session::{ActiveStage, ActiveStageOutput};
+use ironrdp_connector::{ClientConnector, ConnectorResult, Credentials, ServerName};
+use ironrdp_pdu::gcc::KeyboardType;
+use ironrdp_pdu::input::fast_path::FastPathInputEvent;
+use ironrdp_pdu::rdp::capability_sets::MajorPlatformType;
+use ironrdp_pdu::rdp::client_info::PerformanceFlags;
+use ironrdp_session::image::DecodedImage;
+use ironrdp_session::{ActiveStage, ActiveStageBuilder, ActiveStageOutput};
 use ironrdp_dvc::DrdynvcClient;
 use ironrdp_rdpdr::Rdpdr;
 
+use crate::audio::{AudioCapture, AudioPlayback, SharedAudioHub};
 use crate::automation::{AutomationDvc, SharedDvcState};
 use crate::rdpdr::MultiDriveBackend;
 use ironrdp_rdpsnd::client::{NoopRdpsndBackend, Rdpsnd};
@@ -69,9 +70,38 @@ pub struct RdpConfig {
     pub drives: Vec<DriveMapping>,
     /// Shared DVC state for automation (enables DVC channel if provided).
     pub automation_dvc_state: Option<SharedDvcState>,
+    /// Audio redirection (remote sound out, microphone in) through this hub, if provided.
+    pub audio: Option<SharedAudioHub>,
 }
 
 use crate::automation::DvcCommandReceiver;
+
+/// DRDYNVC messages a dynamic channel sends on its own (the microphone's capture packets).
+type DvcUplinkMessage = (u32, Vec<ironrdp_svc::SvcMessage>);
+
+/// AUDIO_INPUT listener: a new microphone channel per server request, fed by the audio hub.
+struct AudioInputListener {
+    hub: SharedAudioHub,
+    uplink: mpsc::UnboundedSender<DvcUplinkMessage>,
+}
+
+impl ironrdp_dvc::DvcChannelListener for AudioInputListener {
+    fn channel_name(&self) -> &str {
+        ironrdp_rdpeai::CHANNEL_NAME
+    }
+
+    fn create(&mut self, _channel_id: ironrdp_dvc::DynamicChannelId) -> Option<Box<dyn ironrdp_dvc::DvcClientProcessor>> {
+        let uplink = self.uplink.clone();
+        Some(Box::new(ironrdp_rdpeai::client::RdpeaiClient::new(
+            Box::new(AudioCapture::new(Arc::clone(&self.hub))),
+            Box::new(move |channel_id, messages| {
+                uplink
+                    .send((channel_id, messages))
+                    .map_err(|_| ironrdp_pdu::pdu_other_err!("AUDIO_INPUT uplink closed"))
+            }),
+        )))
+    }
+}
 
 /// Commands sent to the background frame processor.
 enum SessionCommand {
@@ -106,6 +136,8 @@ pub struct RdpSession {
     shared: Arc<RwLock<SharedState>>,
     /// Channel to send commands to the background task
     command_tx: mpsc::Sender<SessionCommand>,
+    /// Whether audio is redirected to the audio hub.
+    audio: bool,
     /// Handle to the background task
     _task_handle: tokio::task::JoinHandle<()>,
 }
@@ -124,24 +156,39 @@ impl RdpSession {
         info!("Connecting to {}:{}", config.host, config.port);
 
         // Build connector config
-        let connector_config = connector::Config {
+        let connector_config = ironrdp_connector::Config {
             credentials: Credentials::UsernamePassword {
                 username: config.username.clone(),
-                password: config.password.clone(),
+                password: config.password.clone().into(),
             },
             domain: config.domain.clone(),
             enable_tls: true,
             enable_credssp: true,
-            keyboard_type: KeyboardType::IbmEnhanced,
+            enable_standard_rdp_security: false,
+            keyboard_type: KeyboardType::IBM_ENHANCED,
             keyboard_subtype: 0,
             keyboard_functional_keys_count: 12,
             keyboard_layout: 0x409, // US English
+            connection_type: ironrdp_pdu::gcc::ConnectionType::Lan,
             ime_file_name: String::new(),
             dig_product_id: String::new(),
-            desktop_size: connector::DesktopSize {
+            desktop_size: ironrdp_connector::DesktopSize {
                 width: config.width,
                 height: config.height,
             },
+            monitor_layout: None,
+            desktop_physical_size: None,
+            desktop_orientation: None,
+            device_scale_factor: None,
+            monitor_extended_layout: None,
+            relative_mouse_input: false,
+            alternate_shell: String::new(),
+            work_dir: String::new(),
+            remote_application_mode: false,
+            rail_support_level: ironrdp_pdu::rdp::capability_sets::RailSupportLevel::empty(),
+            compression_type: None,
+            multitransport_flags: None,
+            support_dyn_vc_gfx_protocol: false,
             bitmap: None,
             client_build: 0,
             client_name: "agent-rdp".to_string(),
@@ -157,7 +204,8 @@ impl RdpSession {
             enable_server_pointer: false,
             request_data: None,
             autologon: true,
-            enable_audio_playback: false,
+            enable_audio_playback: config.audio.is_some(),
+            enable_audio_capture: config.audio.is_some(),
             desktop_scale_factor: 0,
             hardware_id: None,
             license_cache: None,
@@ -179,9 +227,16 @@ impl RdpSession {
         // Create clipboard state (shared between backend and session)
         let clipboard_state = Arc::new(parking_lot::Mutex::new(clipboard::ClipboardState::default()));
 
-        // RDPSND (audio) channel - required for RDPDR on Windows 2012+ and good to have
-        let rdpsnd = Rdpsnd::new(Box::new(NoopRdpsndBackend));
+        // RDPSND (audio) channel - required for RDPDR on Windows 2012+ and good to have.
+        // With audio redirection its wave blocks go to the attached audio clients.
+        let audio_enabled = config.audio.is_some();
+        let rdpsnd = match &config.audio {
+            Some(hub) => Rdpsnd::new(Box::new(AudioPlayback::new(Arc::clone(hub)))),
+            None => Rdpsnd::new(Box::new(NoopRdpsndBackend)),
+        };
         connector.attach_static_channel(rdpsnd);
+        // Messages dynamic channels send on their own (the microphone), written by the frame processor.
+        let (dvc_uplink_tx, dvc_uplink_rx) = mpsc::unbounded_channel::<DvcUplinkMessage>();
 
         // Set up CLIPRDR (clipboard) with our custom backend
         let (cliprdr, clipboard_backend_rx) = clipboard::create_cliprdr(Arc::clone(&clipboard_state));
@@ -217,9 +272,15 @@ impl RdpSession {
                     path, name, device_id
                 );
             }
+        } else if config.audio.is_some() {
+            // Windows starts RDPSND only for a client that also has the device redirection channel
+            // (FreeRDP loads RDPDR with sound for the same reason) - announce one without drives.
+            let rdpdr = Rdpdr::new(Box::new(MultiDriveBackend::new()), "agent-rdp".to_string());
+            connector.attach_static_channel(rdpdr);
         }
 
-        // Set up DRDYNVC (dynamic virtual channels) for automation if enabled
+        // Set up DRDYNVC (dynamic virtual channels) for automation and the microphone, if enabled
+        let mut drdynvc: Option<DrdynvcClient> = None;
         let dvc_command_rx: Option<DvcCommandReceiver> = if let Some(dvc_state) = config.automation_dvc_state {
             // Create command channel for sending DVC data
             let (command_tx, command_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -231,13 +292,20 @@ impl RdpSession {
             }
 
             let automation_dvc = AutomationDvc::new(dvc_state);
-            let drdynvc = DrdynvcClient::new().with_dynamic_channel(automation_dvc);
-            connector.attach_static_channel(drdynvc);
+            drdynvc = Some(DrdynvcClient::new().with_dynamic_channel(automation_dvc));
             info!("Dynamic Virtual Channel enabled for automation");
             Some(command_rx)
         } else {
             None
         };
+        if let Some(hub) = &config.audio {
+            let listener = AudioInputListener { hub: Arc::clone(hub), uplink: dvc_uplink_tx };
+            drdynvc = Some(drdynvc.unwrap_or_default().with_listener(listener));
+            info!("Audio redirection enabled (sound out, microphone in)");
+        }
+        if let Some(drdynvc) = drdynvc {
+            connector.attach_static_channel(drdynvc);
+        }
 
         // Begin connection (pre-TLS)
         let should_upgrade = ironrdp_tokio::connect_begin(&mut framed, &mut connector)
@@ -268,7 +336,7 @@ impl RdpSession {
         let server_name: ServerName = config.host.clone().into();
 
         // Finalize connection (post-TLS)
-        let connection_result = ironrdp_tokio::connect_finalize(
+        let outcome = ironrdp_tokio::connect_finalize(
             upgraded,
             connector,
             &mut upgraded_framed,
@@ -279,6 +347,12 @@ impl RdpSession {
         )
         .await
         .map_err(|e| RdpError::ConnectionFailed(e.to_string()))?;
+        let connection_result = match outcome {
+            ironrdp_connector::ConnectionOutcome::Connected(result) => result,
+            ironrdp_connector::ConnectionOutcome::Redirected(_) => {
+                return Err(RdpError::ConnectionFailed("the server redirected the connection (not supported)".into()));
+            }
+        };
 
         info!("RDP connection established to {}", config.host);
 
@@ -290,7 +364,17 @@ impl RdpSession {
         );
 
         // Create active stage for ongoing communication
-        let active_stage = ActiveStage::new(connection_result);
+        let active_stage = ActiveStageBuilder {
+            static_channels: connection_result.static_channels,
+            user_channel_id: connection_result.user_channel_id,
+            io_channel_id: connection_result.io_channel_id,
+            message_channel_id: connection_result.message_channel_id,
+            share_id: connection_result.share_id,
+            compression_type: connection_result.compression_type,
+            enable_server_pointer: connection_result.enable_server_pointer,
+            pointer_software_rendering: connection_result.pointer_software_rendering,
+        }
+        .build();
 
         // Create shared state
         let shared = Arc::new(RwLock::new(SharedState {
@@ -316,6 +400,7 @@ impl RdpSession {
                 disconnect_notify,
                 clipboard_backend_rx,
                 dvc_command_rx,
+                dvc_uplink_rx,
             )
             .await;
         });
@@ -323,6 +408,7 @@ impl RdpSession {
         Ok(Self {
             shared,
             command_tx,
+            audio: audio_enabled,
             _task_handle: task_handle,
         })
     }
@@ -399,6 +485,11 @@ impl RdpSession {
         self.shared.read().host.clone()
     }
 
+    /// Whether the session redirects audio (connected with `audio: true`).
+    pub fn audio_enabled(&self) -> bool {
+        self.audio
+    }
+
     /// Get the desktop width.
     pub fn width(&self) -> u16 {
         self.shared.read().width
@@ -461,7 +552,7 @@ impl RdpSession {
 
     /// Send text input as Unicode characters.
     pub async fn send_text(&self, text: &str) -> Result<(), RdpError> {
-        use ironrdp::pdu::input::fast_path::KeyboardFlags;
+        use ironrdp_pdu::input::fast_path::KeyboardFlags;
         use std::time::Duration;
 
         for ch in text.chars() {
@@ -530,7 +621,10 @@ async fn run_frame_processor(
     disconnect_notify: Option<DisconnectNotify>,
     mut clipboard_backend_rx: mpsc::UnboundedReceiver<clipboard::BackendMessage>,
     mut dvc_command_rx: Option<DvcCommandReceiver>,
+    mut dvc_uplink_rx: mpsc::UnboundedReceiver<DvcUplinkMessage>,
 ) {
+    // Without audio no channel holds the uplink sender; a closed uplink then waits forever.
+    let mut uplink_open = true;
     info!("Frame processor started");
     let mut graceful_shutdown = false;
 
@@ -675,7 +769,7 @@ async fn run_frame_processor(
                         // Process frame and collect responses
                         let (frames_to_send, should_terminate) = {
                             let mut state = shared.write();
-                            match active_stage.process(&mut state.image, action, &payload) {
+                            match active_stage.process(&mut state.image, action, &payload, framed.last_read_at()) {
                                 Ok(outputs) => {
                                     let mut frames = Vec::new();
                                     let mut terminate = false;
@@ -755,6 +849,25 @@ async fn run_frame_processor(
                             }
                         }
                     }
+                }
+            }
+
+            // DRDYNVC messages a dynamic channel sends on its own (microphone capture packets)
+            uplink = async {
+                if uplink_open { dvc_uplink_rx.recv().await } else { std::future::pending().await }
+            } => {
+                match uplink {
+                    Some((channel_id, messages)) => {
+                        match active_stage.encode_dvc_messages(messages) {
+                            Ok(frame) => {
+                                if let Err(e) = framed.write_all(&frame).await {
+                                    error!("Failed to send DVC data on channel {}: {}", channel_id, e);
+                                }
+                            }
+                            Err(e) => error!("Failed to encode DVC data on channel {}: {}", channel_id, e),
+                        }
+                    }
+                    None => uplink_open = false,
                 }
             }
 
@@ -859,7 +972,7 @@ struct NoopNetworkClient;
 impl ironrdp_tokio::NetworkClient for NoopNetworkClient {
     fn send(
         &mut self,
-        _network_request: &ironrdp::connector::sspi::generator::NetworkRequest,
+        _network_request: &ironrdp_connector::sspi::generator::NetworkRequest,
     ) -> impl Future<Output = ConnectorResult<Vec<u8>>> {
         async move {
             // Return empty response - NTLM auth doesn't need network calls
@@ -957,7 +1070,7 @@ fn key_to_scancode(key: &str) -> Option<(u8, bool)> {
 
 /// Create a keyboard event with proper flags.
 fn create_key_event(scancode: u8, extended: bool, release: bool) -> FastPathInputEvent {
-    use ironrdp::pdu::input::fast_path::KeyboardFlags;
+    use ironrdp_pdu::input::fast_path::KeyboardFlags;
 
     let mut flags = KeyboardFlags::empty();
     if release {

@@ -42,6 +42,11 @@ pub enum Request {
     /// Get session info.
     SessionInfo,
 
+    /// Turn this IPC connection into an audio stream (see the daemon's audio module): after
+    /// the response line it carries binary frames both ways - the remote sound out, microphone
+    /// samples in. Needs a session connected with `audio: true`.
+    AudioAttach,
+
     /// Ping the daemon (for health checks).
     Ping,
 
@@ -110,6 +115,11 @@ pub struct ConnectRequest {
     /// When false, only WebSocket connections are accepted.
     #[serde(default)]
     pub serve_viewer: bool,
+
+    /// Redirect audio: the remote sound is streamed to clients that send `audio_attach`
+    /// (nothing plays locally), and the remote side gets a microphone fed by those clients.
+    #[serde(default)]
+    pub audio: bool,
 }
 
 fn default_stream_fps() -> u32 {
@@ -136,6 +146,7 @@ impl Default for ConnectRequest {
             stream_fps: default_stream_fps(),
             stream_quality: default_stream_quality(),
             serve_viewer: false,
+            audio: false,
         }
     }
 }

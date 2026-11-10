@@ -3,6 +3,7 @@
 //! This crate implements the background daemon that maintains RDP connections
 //! and handles commands from CLI instances via IPC.
 
+pub mod audio;
 pub mod automation;
 pub mod daemon;
 pub mod handlers;

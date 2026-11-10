@@ -5,8 +5,8 @@
 
 use std::collections::HashMap;
 
-use ironrdp::pdu::input::fast_path::{FastPathInputEvent, KeyboardFlags};
-use ironrdp::pdu::input::mouse::{MousePdu, PointerFlags};
+use ironrdp_pdu::input::fast_path::{FastPathInputEvent, KeyboardFlags};
+use ironrdp_pdu::input::mouse::{MousePdu, PointerFlags};
 use serde::Deserialize;
 
 /// Mouse input message from WebSocket client.

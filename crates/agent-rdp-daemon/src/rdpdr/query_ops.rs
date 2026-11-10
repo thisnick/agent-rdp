@@ -3,7 +3,7 @@
 use std::fs::{self, ReadDir};
 use std::path::PathBuf;
 
-use ironrdp::pdu::PduResult;
+use ironrdp_pdu::PduResult;
 use ironrdp_rdpdr::pdu::efs::*;
 use ironrdp_rdpdr::pdu::RdpdrPdu;
 use ironrdp_svc::SvcMessage;

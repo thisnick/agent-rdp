@@ -54,6 +54,10 @@ impl ClipboardMessageProxy for ChannelProxy {
             ClipboardMessage::SendInitiateCopy(formats) => BackendMessage::InitiateCopy(formats),
             ClipboardMessage::SendFormatData(data) => BackendMessage::FormatData(data),
             ClipboardMessage::SendInitiatePaste(format_id) => BackendMessage::InitiatePaste(format_id),
+            // File copy over the clipboard is not offered.
+            ClipboardMessage::SendFileContentsRequest(_)
+            | ClipboardMessage::SendFileContentsResponse(_)
+            | ClipboardMessage::SendInitiateFileCopy(_) => return,
             ClipboardMessage::Error(e) => {
                 warn!("Clipboard backend error: {}", e);
                 return;

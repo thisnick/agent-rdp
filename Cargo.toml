@@ -11,7 +11,7 @@ version = "0.6.5" # x-release-please-version
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/anthropics/agent-rdp"
-rust-version = "1.75"
+rust-version = "1.94"
 
 [workspace.dependencies]
 # Internal crates
@@ -28,17 +28,23 @@ serde_json = "1"
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 
-# IronRDP - use umbrella crate with features
-ironrdp = { version = "0.14", features = ["connector", "session", "input", "graphics"] }
-ironrdp-tokio = "0.8"
-ironrdp-graphics = "0.7"
-ironrdp-cliprdr = "0.5"
-ironrdp-cliprdr-native = "0.5"
-ironrdp-rdpdr = "0.5"
-ironrdp-rdpdr-native = "0.5"
-ironrdp-rdpsnd = "0.7"
-ironrdp-svc = "0.6"
-ironrdp-dvc = "0.5"
+# IronRDP - individual crates: the umbrella crate lags behind, and AUDIO_INPUT
+# (ironrdp-rdpeai, INFO_AUDIOCAPTURE in the connector) needs the October 2026 releases.
+ironrdp-connector = "0.12"
+ironrdp-session = "0.13"
+ironrdp-pdu = "0.11"
+ironrdp-input = "0.9"
+ironrdp-core = "0.3"
+ironrdp-tokio = "0.12"
+ironrdp-graphics = "0.11"
+ironrdp-cliprdr = "0.9"
+ironrdp-cliprdr-native = "0.9"
+ironrdp-rdpdr = "0.9"
+ironrdp-rdpdr-native = "0.9"
+ironrdp-rdpsnd = "0.11"
+ironrdp-rdpeai = "0.2"
+ironrdp-svc = "0.10"
+ironrdp-dvc = "0.10"
 
 # Certificate parsing
 x509-cert = "0.2"

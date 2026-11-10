@@ -244,6 +244,7 @@ export class RdpSession {
       stream_fps: 10,
       stream_quality: 80,
       serve_viewer: false,
+      audio: options.audio ?? false,
     };
 
     const response = await this._send(request);
